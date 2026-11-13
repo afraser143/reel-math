@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createDb, type Db } from "@/db";
+import { createDb, withVerifiedSsl, type Db } from "@/db";
 import { LAKES, MULTIPLIERS, UNLOCK_THRESHOLD } from "@/lib/domain/lakes";
 import { aiUsage, catches, factProgress, profiles, sessions, users } from "@/db/schema";
 import { createSession, deleteAccount, deleteSession, login, register, userForToken } from "./auth";
@@ -180,5 +180,17 @@ describe("deleting data", () => {
     for (const table of [users, sessions, profiles, factProgress, catches, aiUsage]) {
       expect(await count(table)).toBe(0);
     }
+  });
+});
+
+describe("withVerifiedSsl", () => {
+  it("pins weaker SSL modes to verify-full and leaves everything else alone", () => {
+    const neon = "postgresql://u:p@ep-x.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require";
+    expect(withVerifiedSsl(neon)).toBe(
+      "postgresql://u:p@ep-x.us-east-2.aws.neon.tech/neondb?sslmode=verify-full&channel_binding=require",
+    );
+    expect(withVerifiedSsl("postgres://u@h/db?sslmode=prefer")).toContain("sslmode=verify-full");
+    expect(withVerifiedSsl("postgres://u@h/db?sslmode=disable")).toContain("sslmode=disable");
+    expect(withVerifiedSsl("postgres://u@localhost:5432/db")).toBe("postgres://u@localhost:5432/db");
   });
 });

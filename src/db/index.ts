@@ -16,6 +16,25 @@ interface DbOptions {
 }
 
 /**
+ * Pins the SSL mode to verify-full. The pg driver already treats prefer/require/verify-ca
+ * as verify-full, but warns that a future major version will weaken them to libpq
+ * semantics. Saying verify-full explicitly keeps full certificate checks either way.
+ */
+export function withVerifiedSsl(url: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return url;
+  }
+  const mode = parsed.searchParams.get("sslmode");
+  if (mode === "prefer" || mode === "require" || mode === "verify-ca") {
+    parsed.searchParams.set("sslmode", "verify-full");
+  }
+  return parsed.toString();
+}
+
+/**
  * Connects to Postgres when a URL is given, otherwise to an embedded PGlite
  * database, so `npm run dev` needs no setup.
  */
@@ -24,7 +43,7 @@ export async function createDb({ url, dataDir, migrate = true }: DbOptions = {})
     const { Pool } = await import("pg");
     const { drizzle } = await import("drizzle-orm/node-postgres");
     // Serverless functions each hold their own pool, so keep it small.
-    const db = drizzle(new Pool({ connectionString: url, max: 5 }), { schema });
+    const db = drizzle(new Pool({ connectionString: withVerifiedSsl(url), max: 5 }), { schema });
     if (migrate) {
       const { migrate: run } = await import("drizzle-orm/node-postgres/migrator");
       await run(db, { migrationsFolder: MIGRATIONS });
