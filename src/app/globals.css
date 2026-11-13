@@ -1,26 +1,105 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --sky: #dff1f7;
+  --water: #1c6e8c;
+  --water-deep: #0b3d5c;
+  --shore: #f6efdc;
+  --card: #fffdf7;
+  --ink: #1d2a33;
+  --ink-soft: #52606b;
+  --reed: #3f7d20;
+  --reed-soft: #e3f1d6;
+  --bobber: #e23d28;
+  --bobber-soft: #fde4df;
+  --gold: #d99a06;
+  --gold-soft: #fff3cf;
+  --wood: #7a4e2d;
+  --line: #d9cfb6;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  :root:not([data-theme="light"]) {
+    --sky: #0c2433;
+    --water: #2a8fb3;
+    --water-deep: #061b29;
+    --shore: #132f40;
+    --card: #17384a;
+    --ink: #eef5f8;
+    --ink-soft: #a9bcc7;
+    --reed: #84c25a;
+    --reed-soft: #1f3d22;
+    --bobber: #ff6a55;
+    --bobber-soft: #4a221d;
+    --gold: #f5bf3a;
+    --gold-soft: #44380f;
+    --wood: #d9a77f;
+    --line: #2b5065;
   }
 }
 
+:root[data-theme="dark"] {
+  --sky: #0c2433;
+  --water: #2a8fb3;
+  --water-deep: #061b29;
+  --shore: #132f40;
+  --card: #17384a;
+  --ink: #eef5f8;
+  --ink-soft: #a9bcc7;
+  --reed: #84c25a;
+  --reed-soft: #1f3d22;
+  --bobber: #ff6a55;
+  --bobber-soft: #4a221d;
+  --gold: #f5bf3a;
+  --gold-soft: #44380f;
+  --wood: #d9a77f;
+  --line: #2b5065;
+}
+
+@theme inline {
+  --color-sky: var(--sky);
+  --color-water: var(--water);
+  --color-water-deep: var(--water-deep);
+  --color-shore: var(--shore);
+  --color-card: var(--card);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-reed: var(--reed);
+  --color-reed-soft: var(--reed-soft);
+  --color-bobber: var(--bobber);
+  --color-bobber-soft: var(--bobber-soft);
+  --color-gold: var(--gold);
+  --color-gold-soft: var(--gold-soft);
+  --color-wood: var(--wood);
+  --color-line: var(--line);
+  --font-sans: ui-rounded, "SF Pro Rounded", "Nunito", "Segoe UI", system-ui, sans-serif;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--shore);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+}
+
+@keyframes bob {
+  0%, 100% { transform: translateY(0) rotate(-4deg); }
+  50% { transform: translateY(6px) rotate(4deg); }
+}
+@keyframes splash-in {
+  0% { transform: translateY(24px) scale(0.85); opacity: 0; }
+  60% { transform: translateY(-6px) scale(1.04); opacity: 1; }
+  100% { transform: translateY(0) scale(1); }
+}
+@keyframes wiggle {
+  0%, 100% { transform: rotate(0); }
+  25% { transform: rotate(-6deg); }
+  75% { transform: rotate(6deg); }
+}
+.animate-bob { animation: bob 2.4s ease-in-out infinite; }
+.animate-splash { animation: splash-in 0.45s ease-out both; }
+.animate-wiggle { animation: wiggle 0.5s ease-in-out 2; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-bob, .animate-splash, .animate-wiggle { animation: none; }
 }

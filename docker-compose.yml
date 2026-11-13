@@ -1,0 +1,14 @@
+# Optional: run against real Postgres instead of the embedded PGlite database.
+#   docker compose up -d
+#   DATABASE_URL=postgres://reelmath:reelmath@localhost:5432/reelmath npm run dev
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: reelmath
+      POSTGRES_PASSWORD: reelmath
+      POSTGRES_DB: reelmath
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+volumes:
+  pgdata:
