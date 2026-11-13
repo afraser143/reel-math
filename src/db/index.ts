@@ -6,26 +6,39 @@ export type Db = PgDatabase<PgQueryResultHKT, typeof schema>;
 
 const MIGRATIONS = path.join(process.cwd(), "drizzle");
 
+interface DbOptions {
+  /** Postgres connection string. Without it, an embedded PGlite database is used. */
+  url?: string;
+  /** PGlite data directory. Omit for an in-memory database (tests). */
+  dataDir?: string;
+  /** Apply pending migrations on connect. */
+  migrate?: boolean;
+}
+
 /**
- * Connects to Postgres when DATABASE_URL is set, otherwise to an embedded
- * PGlite database, so `npm run dev` needs no setup. Migrations run on first use.
+ * Connects to Postgres when a URL is given, otherwise to an embedded PGlite
+ * database, so `npm run dev` needs no setup.
  */
-export async function createDb(opts: { url?: string; dataDir?: string } = {}): Promise<Db> {
-  if (opts.url) {
+export async function createDb({ url, dataDir, migrate = true }: DbOptions = {}): Promise<Db> {
+  if (url) {
     const { Pool } = await import("pg");
     const { drizzle } = await import("drizzle-orm/node-postgres");
-    const { migrate } = await import("drizzle-orm/node-postgres/migrator");
-    const db = drizzle(new Pool({ connectionString: opts.url }), { schema });
-    await migrate(db, { migrationsFolder: MIGRATIONS });
+    // Serverless functions each hold their own pool, so keep it small.
+    const db = drizzle(new Pool({ connectionString: url, max: 5 }), { schema });
+    if (migrate) {
+      const { migrate: run } = await import("drizzle-orm/node-postgres/migrator");
+      await run(db, { migrationsFolder: MIGRATIONS });
+    }
     return db as unknown as Db;
   }
 
   const { PGlite } = await import("@electric-sql/pglite");
   const { drizzle } = await import("drizzle-orm/pglite");
-  const { migrate } = await import("drizzle-orm/pglite/migrator");
-  // No dataDir means in-memory, which the tests use.
-  const db = drizzle(new PGlite(opts.dataDir), { schema });
-  await migrate(db, { migrationsFolder: MIGRATIONS });
+  const db = drizzle(new PGlite(dataDir), { schema });
+  if (migrate) {
+    const { migrate: run } = await import("drizzle-orm/pglite/migrator");
+    await run(db, { migrationsFolder: MIGRATIONS });
+  }
   return db as unknown as Db;
 }
 
@@ -33,11 +46,19 @@ export async function createDb(opts: { url?: string; dataDir?: string } = {}): P
 const globalForDb = globalThis as unknown as { reelMathDb?: Promise<Db> };
 
 export function getDb(): Promise<Db> {
-  globalForDb.reelMathDb ??= createDb({
-    url: process.env.DATABASE_URL,
-    dataDir: path.join(process.cwd(), ".pglite"),
-  });
+  globalForDb.reelMathDb ??= connectFromEnv();
   return globalForDb.reelMathDb;
+}
+
+function connectFromEnv(): Promise<Db> {
+  const url = process.env.DATABASE_URL;
+  if (process.env.NODE_ENV === "production") {
+    // Hosted filesystems are read-only or wiped between requests, so PGlite would lose data.
+    if (!url) throw new Error("DATABASE_URL must be set in production");
+    // Production migrations run once at build time (`npm run db:migrate`), not per cold start.
+    return createDb({ url, migrate: false });
+  }
+  return createDb({ url, dataDir: path.join(process.cwd(), ".pglite") });
 }
 
 export { schema };

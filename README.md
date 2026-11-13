@@ -80,7 +80,7 @@ ANTHROPIC_API_KEY=...                                        # enables AI word p
 DATABASE_URL=postgres://reelmath:reelmath@localhost:5432/reelmath  # use real Postgres
 ```
 
-To use real Postgres locally, run `docker compose up -d` and set `DATABASE_URL` as above. Migrations run automatically on the first request, or with `npm run db:migrate`.
+To use real Postgres locally, run `docker compose up -d` and set `DATABASE_URL` as above. In development, migrations run automatically on the first request; you can also run them with `npm run db:migrate`.
 
 ```bash
 npm test             # 32 unit + integration tests
@@ -90,7 +90,9 @@ npm run lint
 
 ### Deploying
 
-Any Node host works with a managed Postgres (Neon, Supabase, Render, Fly). Set `DATABASE_URL` and, optionally, `ANTHROPIC_API_KEY`, then run `npm run db:migrate` during the deploy. PGlite is for local development only, because serverless filesystems don't persist.
+Deployed on Vercel with Neon Postgres. The `vercel-build` script applies migrations once per deploy, before `next build`, so cold starts never race to migrate. In production the app refuses to start without `DATABASE_URL`, because PGlite on a serverless filesystem would silently lose data.
+
+Any Node host with managed Postgres works the same way: set `DATABASE_URL` (and optionally `ANTHROPIC_API_KEY`), and run `npm run db:migrate` before starting.
 
 ## Ideas for later
 
