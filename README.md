@@ -2,6 +2,8 @@
 
 **Multiplication facts practice for kids who'd rather be bass fishing.**
 
+**▶ Play it: [reel-math-xi.vercel.app](https://reel-math-xi.vercel.app)**
+
 I built this for my 9-year-old, who loves fishing and didn't love times-table flashcards. Every correct answer lands a bass, and faster answers land bigger fish. Each times table is a lake that unlocks as he learns the one before it. Behind the game, a spaced-repetition engine decides which facts to show, and Claude writes fishing word problems aimed at the facts he finds hardest.
 
 | Cast a line | Fish on! | The line snapped |
