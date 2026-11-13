@@ -11,8 +11,8 @@ export default async function Home() {
       <section className="bg-gradient-to-b from-sky to-water pt-10 text-center">
         <div className="mx-auto max-w-2xl px-4">
           <Bobber className="animate-bob mx-auto h-16 w-12 text-ink" />
-          <h1 className="mt-4 text-5xl font-black tracking-tight text-water-deep sm:text-6xl">Reel Math</h1>
-          <p className="mx-auto mt-3 max-w-md text-lg font-semibold text-water-deep/80">
+          <h1 className="mt-4 text-5xl font-black tracking-tight text-ink sm:text-6xl">Reel Math</h1>
+          <p className="mx-auto mt-3 max-w-md text-lg font-semibold text-ink/80">
             Learn your times tables one bass at a time. Answer fast, land a lunker.
           </p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">

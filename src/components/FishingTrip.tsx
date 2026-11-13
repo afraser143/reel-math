@@ -154,7 +154,7 @@ export function FishingTrip({ profileId, mode, lake }: { profileId: string; mode
                 {item.table} × {item.multiplier}
               </p>
             )}
-            <div className="mx-auto mt-4 flex h-16 max-w-[12rem] items-center justify-center rounded-2xl border-2 border-dashed border-water bg-sky text-5xl font-black text-water-deep">
+            <div className="mx-auto mt-4 flex h-16 max-w-[12rem] items-center justify-center rounded-2xl border-2 border-dashed border-water bg-sky text-5xl font-black text-ink">
               {input || <span className="text-ink-soft/40">?</span>}
             </div>
             {mode === "card" && <BiteMeter key={index} />}
@@ -224,7 +224,7 @@ function ResultCard({ result, item, onNext, last }: { result: AnswerResult; item
             {item.table} × {item.multiplier} = {result.correctAnswer}
           </p>
           {result.tip && (
-            <p className="mx-auto mt-4 max-w-md rounded-2xl bg-sky px-4 py-3 text-left font-semibold text-water-deep">
+            <p className="mx-auto mt-4 max-w-md rounded-2xl bg-sky px-4 py-3 text-left font-semibold text-ink">
               <span className="font-black">Guide tip: </span>
               {result.tip}
             </p>
