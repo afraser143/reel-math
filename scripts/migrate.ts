@@ -1,9 +1,19 @@
-// Applies database migrations. Runs automatically on first request too; this is for CI and deploys.
+// Applies database migrations. Runs in the Vercel build (`vercel-build`) and in CI.
+// In development they also run automatically on the first request.
 import { createDb } from "../src/db";
 
-createDb({ url: process.env.DATABASE_URL, dataDir: process.env.DATABASE_URL ? undefined : ".pglite" })
+const url = process.env.DATABASE_URL;
+
+// On a host like Vercel, falling back to PGlite would "succeed" against a throwaway
+// database and ship a site whose sign-up is broken. Fail the deploy instead.
+if (!url && (process.env.VERCEL || process.env.CI)) {
+  console.error("DATABASE_URL is not set. Connect a Postgres database (e.g. Neon) and redeploy.");
+  process.exit(1);
+}
+
+createDb({ url, dataDir: url ? undefined : ".pglite" })
   .then(() => {
-    console.log("Migrations applied");
+    console.log(`Migrations applied${url ? "" : " (local PGlite)"}`);
     process.exit(0);
   })
   .catch((err) => {
