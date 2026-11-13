@@ -55,6 +55,15 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           />
         </label>
         {error && <p className="rounded-xl bg-bobber-soft px-3 py-2 font-semibold text-bobber">{error}</p>}
+        {signup && (
+          <p className="text-sm text-ink-soft">
+            Reel Math stores only your email and what your kids practice.{" "}
+            <Link className="font-bold text-water underline" href="/privacy" target="_blank">
+              Read the privacy policy
+            </Link>
+            .
+          </p>
+        )}
         <Button type="submit" disabled={busy} className="w-full">
           {signup ? "Create account" : "Sign in"}
         </Button>

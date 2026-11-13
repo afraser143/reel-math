@@ -65,6 +65,18 @@ export async function userForToken(db: Db, token: string, now = new Date()): Pro
   return row ?? null;
 }
 
+/**
+ * Permanently deletes a parent account. Profiles, progress, catches, sessions and
+ * AI usage counts are removed by ON DELETE CASCADE. Requires the password again.
+ */
+export async function deleteAccount(db: Db, userId: string, password: string): Promise<void> {
+  const [user] = await db.select().from(users).where(eq(users.id, userId));
+  if (!user || !(await verify(user.passwordHash, password))) {
+    throw new HttpError(401, "That password isn't right");
+  }
+  await db.delete(users).where(eq(users.id, userId));
+}
+
 export async function deleteSession(db: Db, token: string): Promise<void> {
   await db.delete(sessions).where(eq(sessions.tokenHash, hashToken(token)));
 }

@@ -1,13 +1,20 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Bobber, Fish } from "@/components/Fish";
 import { LinkButton, Waves } from "@/components/ui";
 import { currentUser } from "@/lib/server/session";
 
-export default async function Home() {
+export default async function Home({ searchParams }: { searchParams: Promise<{ deleted?: string }> }) {
   if (await currentUser()) redirect("/anglers");
+  const deleted = (await searchParams).deleted === "1";
 
   return (
     <div className="min-h-dvh">
+      {deleted && (
+        <p role="status" className="bg-reed px-4 py-3 text-center font-bold text-shore">
+          Your account and all of its data have been deleted.
+        </p>
+      )}
       <section className="bg-gradient-to-b from-sky to-water pt-10 text-center">
         <div className="mx-auto max-w-2xl px-4">
           <Bobber className="animate-bob mx-auto h-16 w-12 text-ink" />
@@ -40,7 +47,10 @@ export default async function Home() {
         ))}
       </section>
       <p className="pb-10 text-center text-sm text-ink-soft">
-        A parent creates the account. Kids get a nickname and an avatar, and nothing else.
+        A parent creates the account. Kids get a nickname and an avatar, and nothing else.{" "}
+        <Link href="/privacy" className="font-bold underline">
+          Privacy
+        </Link>
       </p>
     </div>
   );

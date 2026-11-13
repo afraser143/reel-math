@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createDb, type Db } from "@/db";
 import { LAKES, MULTIPLIERS, UNLOCK_THRESHOLD } from "@/lib/domain/lakes";
-import { createSession, deleteSession, login, register, userForToken } from "./auth";
+import { aiUsage, catches, factProgress, profiles, sessions, users } from "@/db/schema";
+import { createSession, deleteAccount, deleteSession, login, register, userForToken } from "./auth";
 import { HttpError } from "./errors";
-import { createProfile, getLakes, getLivewell, getOwnedProfile, recordAnswer, startTrip } from "./fishing";
+import { createProfile, deleteProfile, getLakes, getLivewell, getOwnedProfile, recordAnswer, startTrip } from "./fishing";
 import { getWordProblems, takeAiCredit, type ProblemGenerator } from "./wordProblems";
 
 let db: Db;
@@ -144,5 +145,40 @@ describe("word problems", () => {
     const problems = await getWordProblems(db, user.id, profile.id, null);
     expect(problems).toHaveLength(5);
     expect(problems.every((p) => p.source === "template")).toBe(true);
+  });
+});
+
+describe("deleting data", () => {
+  type AnyTable = typeof users | typeof sessions | typeof profiles | typeof factProgress | typeof catches | typeof aiUsage;
+  const count = async (table: AnyTable) =>
+    (await db.select().from(table)).length;
+
+  it("deletes an angler and all their progress, but only for its own parent", async () => {
+    const { user, profile } = await setup();
+    await recordAnswer(db, profile.id, { table: 2, multiplier: 3, answer: 6, responseMs: 1000 });
+    const other = await register(db, { ...creds, email: "other@example.com" });
+
+    await expect(deleteProfile(db, other.id, profile.id)).rejects.toMatchObject({ status: 404 });
+    expect(await count(profiles)).toBe(1);
+
+    await deleteProfile(db, user.id, profile.id);
+    expect(await count(profiles)).toBe(0);
+    expect(await count(factProgress)).toBe(0);
+    expect(await count(catches)).toBe(0);
+  });
+
+  it("deletes a whole account only with the right password", async () => {
+    const { user, profile } = await setup();
+    await recordAnswer(db, profile.id, { table: 2, multiplier: 3, answer: 6, responseMs: 1000 });
+    await createSession(db, user.id);
+    await takeAiCredit(db, user.id);
+
+    await expect(deleteAccount(db, user.id, "wrong password")).rejects.toMatchObject({ status: 401 });
+    expect(await count(users)).toBe(1);
+
+    await deleteAccount(db, user.id, creds.password);
+    for (const table of [users, sessions, profiles, factProgress, catches, aiUsage]) {
+      expect(await count(table)).toBe(0);
+    }
   });
 });

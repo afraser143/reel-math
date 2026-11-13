@@ -22,6 +22,7 @@ I built this for my 9-year-old, who loves fishing and didn't love times-table fl
 - **Guide tips on misses.** Each missed fact gets a strategy using the easier factor ("Times 9: do 7 × 10 = 70, then take away one 7"), not just the answer.
 - **AI tournament challenges.** Claude writes short fishing story problems for the facts he struggles with most. See [AI design](#ai-design) for how a bad generation is kept from teaching a wrong fact.
 - **Parent progress report** showing a heatmap of all 132 facts and the ones missed most often.
+- **Privacy by design.** A [privacy page](https://reel-math-xi.vercel.app/privacy) states exactly what's stored, and parents can delete an angler or their whole account (password-confirmed, cascading delete) from Grown-up settings.
 - **Works on tablets, phones and laptops.** A big on-screen number pad plus keyboard input, dark mode, and reduced motion when the device asks for it.
 
 ## Stack
@@ -80,12 +81,13 @@ Optional configuration (see [`.env.example`](.env.example)):
 ```bash
 ANTHROPIC_API_KEY=...                                        # enables AI word problems
 DATABASE_URL=postgres://reelmath:reelmath@localhost:5432/reelmath  # use real Postgres
+CONTACT_EMAIL=you@example.com                                # contact shown on the privacy page
 ```
 
 To use real Postgres locally, run `docker compose up -d` and set `DATABASE_URL` as above. In development, migrations run automatically on the first request; you can also run them with `npm run db:migrate`.
 
 ```bash
-npm test             # 32 unit + integration tests
+npm test             # 34 unit + integration tests
 npm run typecheck
 npm run lint
 ```

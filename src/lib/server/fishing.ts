@@ -44,6 +44,12 @@ export async function getOwnedProfile(db: Db, userId: string, profileId: string)
   return p;
 }
 
+/** Deletes an angler and, by cascade, all of their progress and catches. */
+export async function deleteProfile(db: Db, userId: string, profileId: string): Promise<void> {
+  const profile = await getOwnedProfile(db, userId, profileId);
+  await db.delete(profiles).where(eq(profiles.id, profile.id));
+}
+
 export async function loadProgress(db: Db, profileId: string) {
   return db.select().from(factProgress).where(eq(factProgress.profileId, profileId));
 }

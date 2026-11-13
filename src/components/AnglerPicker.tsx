@@ -68,7 +68,7 @@ export function AnglerPicker({ anglers, avatars }: { anglers: Angler[]; avatars:
                 placeholder="Bass Master"
                 className="mt-1 w-full rounded-xl border-2 border-line bg-shore px-3 py-2.5 text-lg outline-none focus:border-water"
               />
-              <span className="mt-1 block text-sm font-normal text-ink-soft">A fun name is best. No need for a real one.</span>
+              <span className="mt-1 block text-sm font-normal text-ink-soft">A fun name is best. Please don&rsquo;t use a full real name.</span>
             </label>
             <fieldset>
               <legend className="font-bold">Pick a badge</legend>
@@ -103,9 +103,17 @@ export function AnglerPicker({ anglers, avatars }: { anglers: Angler[]; avatars:
         </Button>
       )}
 
-      <button onClick={logout} className="block text-sm font-bold text-ink-soft underline">
-        Sign out
-      </button>
+      <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm font-bold text-ink-soft">
+        <Link href="/account" className="underline">
+          Grown-up settings
+        </Link>
+        <Link href="/privacy" className="underline">
+          Privacy
+        </Link>
+        <button onClick={logout} className="underline">
+          Sign out
+        </button>
+      </div>
     </div>
   );
 }
