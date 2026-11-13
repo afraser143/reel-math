@@ -19,6 +19,9 @@ const needsWork = (p: { wrongCount: number; box: number }) => p.wrongCount > 0 &
 
 const level = (box: number) => LEVELS[Math.min(box, MASTERED_BOX)];
 
+// Lakes unlock in teaching order (2, 5, 10, 3...), but a times table reads best in numeric order.
+const TABLE_ROWS = [...LAKES].sort((a, b) => a.table - b.table);
+
 export default async function ProgressPage({ params }: { params: Promise<{ id: string }> }) {
   const { db, angler } = await pageAngler((await params).id);
   const progress = await loadProgress(db, angler.id);
@@ -80,7 +83,7 @@ export default async function ProgressPage({ params }: { params: Promise<{ id: s
             </tr>
           </thead>
           <tbody>
-            {LAKES.map((lake) => (
+            {TABLE_ROWS.map((lake) => (
               <tr key={lake.table}>
                 <th className="pr-0.5 text-right font-black sm:pr-1">{lake.table}</th>
                 {MULTIPLIERS.map((m) => {
