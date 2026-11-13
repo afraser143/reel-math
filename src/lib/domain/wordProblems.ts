@@ -23,23 +23,28 @@ export interface WordProblem extends Card {
 const MAX_STORY_CHARS = 320;
 
 /**
- * Checks a generated problem against the fact it was written for:
- * the math has to be right, both numbers have to appear in the story,
- * the story can't give away the answer, and it has to stay short.
+ * Checks a generated problem against the fact it was written for and says what's
+ * wrong, or returns null if it's fine: the math has to be right, both numbers have
+ * to appear in the story, the story can't give away the answer, and it has to stay short.
  */
-export function validateProblem(p: RawProblem, target: Card): boolean {
+export function problemIssue(p: RawProblem, target: Card): string | null {
   const sameFact =
     (p.a === target.table && p.b === target.multiplier) ||
     (p.a === target.multiplier && p.b === target.table);
-  if (!sameFact) return false;
-  if (p.answer !== target.table * target.multiplier) return false;
+  if (!sameFact) return `wrong fact (${p.a}×${p.b}, wanted ${target.table}×${target.multiplier})`;
+  if (p.answer !== target.table * target.multiplier) return `wrong answer (${p.answer})`;
 
   const story = p.story.trim();
-  if (story.length < 20 || story.length > MAX_STORY_CHARS) return false;
-  if (!story.includes("?")) return false;
-  if (!hasNumber(story, p.a) || !hasNumber(story, p.b)) return false;
-  if (p.answer !== p.a && p.answer !== p.b && hasNumber(story, p.answer)) return false;
-  return true;
+  if (story.length < 20) return "story too short";
+  if (story.length > MAX_STORY_CHARS) return `story too long (${story.length} chars)`;
+  if (!story.includes("?")) return "no question mark";
+  if (!hasNumber(story, p.a) || !hasNumber(story, p.b)) return "numbers missing from story";
+  if (p.answer !== p.a && p.answer !== p.b && hasNumber(story, p.answer)) return "story gives away the answer";
+  return null;
+}
+
+export function validateProblem(p: RawProblem, target: Card): boolean {
+  return problemIssue(p, target) === null;
 }
 
 function hasNumber(text: string, n: number): boolean {

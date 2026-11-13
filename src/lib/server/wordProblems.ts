@@ -7,6 +7,7 @@ import type { Card } from "@/lib/domain/srs";
 import { lakeStatuses } from "@/lib/domain/lakes";
 import {
   assembleProblems,
+  problemIssue,
   ProblemSetSchema,
   type RawProblem,
   type WordProblem,
@@ -49,15 +50,15 @@ export const claudeGenerator: ProblemGenerator = async (facts) => {
       messages: [{ role: "user", content: `Write one fishing word problem for each fact:\n${list}` }],
     });
     if (response.stop_reason !== "end_turn" || !response.parsed_output) {
-      console.warn(`Word problem generation stopped early: ${response.stop_reason}`);
+      console.warn(`[word-problems] Claude stopped early: stop_reason=${response.stop_reason}`);
       return [];
     }
     return response.parsed_output.problems;
   } catch (err) {
     if (err instanceof Anthropic.APIError) {
-      console.warn(`Word problem generation failed (${err.status}): ${err.message}`);
+      console.warn(`[word-problems] Claude call failed (${err.status}): ${err.message}`);
     } else {
-      console.warn("Word problem generation failed:", err);
+      console.warn("[word-problems] Claude call failed:", err);
     }
     return [];
   }
@@ -117,9 +118,28 @@ export async function getWordProblems(
 ): Promise<WordProblem[]> {
   const facts = await pickWordProblemFacts(db, profileId);
   let generated: RawProblem[] = [];
-  if (generator && facts.length > 0 && (await takeAiCredit(db, userId))) {
-    generated = await generator(facts);
+  let ai = generator ? "on" : "off (ANTHROPIC_API_KEY not set)";
+  if (generator && facts.length > 0) {
+    if (await takeAiCredit(db, userId)) {
+      generated = await generator(facts);
+    } else {
+      ai = "skipped (daily limit reached)";
+    }
   }
-  return assembleProblems(facts, generated);
-}
+  const problems = assembleProblems(facts, generated);
 
+  // One line per tournament, so the logs show whether the AI is actually being used.
+  // Only facts and counts are logged, never anything about the child.
+  const fromAi = problems.filter((p) => p.source === "ai").length;
+  const rejected = generated
+    .map((g) => {
+      const target = facts.find((f) => (f.table === g.a && f.multiplier === g.b) || (f.table === g.b && f.multiplier === g.a));
+      return target ? problemIssue(g, target) : `unrequested fact ${g.a}×${g.b}`;
+    })
+    .filter((issue): issue is string => issue !== null);
+  console.info(
+    `[word-problems] ai=${ai} generated=${generated.length} used=${fromAi}/${problems.length}` +
+      (rejected.length ? ` rejected: ${rejected.join("; ")}` : ""),
+  );
+  return problems;
+}
