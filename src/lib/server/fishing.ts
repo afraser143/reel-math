@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { Db } from "@/db";
 import { achievements, catches, factProgress, profiles } from "@/db/schema";
 import { LIGHTNING_MS, newlyEarned } from "@/lib/domain/achievements";
-import { catchFish, getSpecies, isTrophy, type Water } from "@/lib/domain/fish";
+import { catchFish, getSpecies, isTrophy, LEGENDARY_GUARANTEE, legendaryCanBite, type Water } from "@/lib/domain/fish";
 import { guideTip } from "@/lib/domain/hints";
 import { isValidFact, lakeStatuses, oceanUnlocked, type LakeStatus } from "@/lib/domain/lakes";
 import { pickCards, review, type Card, type FactProgress } from "@/lib/domain/srs";
@@ -221,7 +221,11 @@ export async function recordAnswer(
           : { correctStreak: 0, fastStreak: 0 },
       )
       .where(eq(profiles.id, profileId))
-      .returning({ correctStreak: profiles.correctStreak, fastStreak: profiles.fastStreak });
+      .returning({
+        correctStreak: profiles.correctStreak,
+        fastStreak: profiles.fastStreak,
+        marlinDrought: profiles.marlinDrought,
+      });
 
     const result: AnswerResult = { correct, correctAnswer, box: next.box };
     if (!correct) {
@@ -231,7 +235,18 @@ export async function recordAnswer(
 
     const fishMs = input.mode === "word" ? WORD_PROBLEM_FISH_MS : responseMs;
     const water = input.water ?? "fresh";
-    const fish = catchFish(fishMs, current?.box ?? 0, opts.rng, water);
+    const box = current?.box ?? 0;
+    // The blue marlin guarantee: count the answers that could have hooked it, and once enough
+    // have gone by without one, the next chance is a sure thing.
+    const marlinChance = legendaryCanBite(fishMs, box, water);
+    const fish = catchFish(fishMs, box, opts.rng, water, marlinChance && streaks.marlinDrought + 1 >= LEGENDARY_GUARANTEE);
+    if (marlinChance) {
+      const landed = getSpecies(fish.speciesId)?.tier === "legendary";
+      await tx
+        .update(profiles)
+        .set({ marlinDrought: landed ? 0 : sql`${profiles.marlinDrought} + 1` })
+        .where(eq(profiles.id, profileId));
+    }
     const [{ best }] = await tx
       .select({ best: max(catches.weightOz) })
       .from(catches)

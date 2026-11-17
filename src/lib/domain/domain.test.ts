@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { catchFish, formatWeight, isTrophy, SPECIES, speedScore } from "./fish";
+import { catchFish, formatWeight, isTrophy, LEGENDARY_GUARANTEE, legendaryCanBite, SPECIES, speedScore } from "./fish";
 import { guideTip } from "./hints";
 import { LAKES, lakeStatuses, MULTIPLIERS, oceanUnlocked, UNLOCK_THRESHOLD } from "./lakes";
 import { BOX_INTERVALS_MS, FLUENT_MS, MAX_BOX, pickCards, RETRY_MS, review, type FactProgress } from "./srs";
@@ -234,6 +234,25 @@ describe("the Open Ocean", () => {
       if (tierOf(catchFish(800, 4, rng, "salt").speciesId) === "legendary") marlins++;
     }
     expect(marlins).toBeGreaterThan(0);
+  });
+
+  it("gives the marlin about 1 bite in 30 good chances, and a sure one when guaranteed", () => {
+    expect(legendaryCanBite(3500, 3, "salt")).toBe(true); // 3.5 seconds is quick enough now
+    expect(legendaryCanBite(3700, 3, "salt")).toBe(false);
+    expect(legendaryCanBite(1000, 2, "salt")).toBe(false);
+    expect(legendaryCanBite(1000, 5, "fresh")).toBe(false);
+    expect(LEGENDARY_GUARANTEE).toBe(40);
+
+    const rng = seeded(13);
+    let marlins = 0;
+    for (let i = 0; i < 6000; i++) if (catchFish(3000, 3, rng, "salt").speciesId === "blue_marlin") marlins++;
+    expect(marlins / 6000).toBeGreaterThan(1 / 45);
+    expect(marlins / 6000).toBeLessThan(1 / 20);
+
+    expect(catchFish(3000, 3, () => 0, "salt", true).speciesId).toBe("blue_marlin");
+    // The guarantee can't conjure a marlin from a slow answer or a lake.
+    expect(catchFish(6000, 3, () => 0, "salt", true).speciesId).not.toBe("blue_marlin");
+    expect(catchFish(1000, 5, () => 0, "fresh", true).speciesId).not.toBe("blue_marlin");
   });
 
   it("calls a trophy by each species' own size", () => {

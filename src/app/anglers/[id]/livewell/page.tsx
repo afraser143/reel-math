@@ -12,7 +12,7 @@ type SpeciesStats = Awaited<ReturnType<typeof getLivewell>>["bySpecies"][number]
 const TIER_HINT = {
   common: "Not caught yet.",
   rare: "Only bites on lightning-fast answers.",
-  legendary: "Only bites on lightning-fast answers to facts you know cold.",
+  legendary: "Bites on quick answers to facts you know well. Keep trying: it always shows up in the end!",
 };
 
 export default async function LivewellPage({ params }: { params: Promise<{ id: string }> }) {

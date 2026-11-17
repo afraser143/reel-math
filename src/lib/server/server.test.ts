@@ -317,6 +317,32 @@ describe("unlock every lake", () => {
   });
 });
 
+describe("the blue marlin guarantee", () => {
+  it("lands the marlin on the 40th good chance, and only counts good chances", async () => {
+    const { user, profile } = await setup();
+    await setUnlockAll(db, user.id, profile.id, { enabled: true, password: creds.password });
+    // A fact he knows well (box 3), so quick answers to it can hook the marlin.
+    await db.insert(factProgress).values({ profileId: profile.id, table: 8, multiplier: 7, box: 3, dueAt: new Date() });
+    const never = () => 0; // without the guarantee, this always lands the first fish in the pool
+    let t = Date.now();
+    const answer = (responseMs: number) =>
+      recordAnswer(
+        db,
+        profile.id,
+        { table: 8, multiplier: 7, answer: 56, responseMs, water: "salt" },
+        { rng: never, now: new Date((t += 60_000)) },
+      );
+    const drought = async () => (await db.select().from(profiles)).find((p) => p.id === profile.id)!.marlinDrought;
+
+    for (let i = 0; i < 39; i++) expect((await answer(1500)).fish?.speciesId).not.toBe("blue_marlin");
+    expect((await answer(5000)).fish?.speciesId).not.toBe("blue_marlin"); // too slow: doesn't count
+    expect(await drought()).toBe(39);
+    const r = await answer(1500);
+    expect(r.fish).toMatchObject({ speciesId: "blue_marlin", tier: "legendary" });
+    expect(await drought()).toBe(0);
+  });
+});
+
 describe("achievements, streaks and fish facts", () => {
   const ans = (profileId: string, m: number, ms: number, right = true, t = 0) =>
     recordAnswer(

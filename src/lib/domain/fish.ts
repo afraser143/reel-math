@@ -73,7 +73,7 @@ export const SPECIES: readonly Species[] = [
   s("mahi", "Mahi-Mahi", "salt", 8, 45, 10, "common", 40, "mahi", "#15a34a"),
   s("tarpon", "Tarpon", "salt", 40, 180, 4, "rare", 160, "slim", "#b8c4d0"),
   s("sailfish", "Sailfish", "salt", 30, 110, 3, "rare", 100, "billfish", "#1d4ed8"),
-  s("blue_marlin", "Blue Marlin", "salt", 150, 650, 1, "legendary", 500, "billfish", "#1e3a8a"),
+  s("blue_marlin", "Blue Marlin", "salt", 150, 650, 4, "legendary", 500, "billfish", "#1e3a8a"),
 ]; // prettier-ignore
 
 /** Kept for older code paths: the bass "lunker" line. */
@@ -98,19 +98,37 @@ export interface Catch {
   weightOz: number;
 }
 
+/** The fastest answer that can still hook a legendary fish: speed 0.8 is 3.6 seconds. */
+const LEGENDARY_SPEED = 0.8;
+
+/**
+ * After this many answers that could have hooked the blue marlin without hooking it, the next
+ * one is guaranteed to. Luck decides when, but he always gets there.
+ */
+export const LEGENDARY_GUARANTEE = 40;
+
+/** Whether this answer is good enough for a legendary fish to bite: quick, on a fact he knows well, in the ocean. */
+export function legendaryCanBite(responseMs: number, box: number, water: Water): boolean {
+  return water === "salt" && speedScore(responseMs) >= LEGENDARY_SPEED && box >= 3;
+}
+
 export function catchFish(
   responseMs: number,
   box: number,
   rng: () => number = Math.random,
   water: Water = "fresh",
+  /** Set when the guarantee kicks in: if a legendary fish can bite, it does. */
+  guaranteeLegendary = false,
 ): Catch {
   const speed = speedScore(responseMs);
   // Rare fish need a quick answer to a fact he's seen before; a legendary one needs real fluency.
   const canBite = (sp: Species) =>
     sp.tier === "common" ||
     (sp.tier === "rare" && speed >= 0.6 && box >= 2) ||
-    (sp.tier === "legendary" && speed >= 0.9 && box >= 3); // about 2.8 seconds or faster
-  const pool = SPECIES.filter((sp) => sp.water === water && canBite(sp));
+    (sp.tier === "legendary" && legendaryCanBite(responseMs, box, sp.water));
+  const biting = SPECIES.filter((sp) => sp.water === water && canBite(sp));
+  const legendary = biting.filter((sp) => sp.tier === "legendary");
+  const pool = guaranteeLegendary && legendary.length ? legendary : biting;
   const total = pool.reduce((sum, sp) => sum + sp.weight, 0);
 
   let roll = rng() * total;

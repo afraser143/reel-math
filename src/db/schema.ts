@@ -52,6 +52,8 @@ export const profiles = pgTable(
     /** Correct answers in a row, and fast (under 2 seconds) correct answers in a row, for achievements. */
     correctStreak: integer("correct_streak").notNull().default(0),
     fastStreak: integer("fast_streak").notNull().default(0),
+    /** Answers in a row that could have hooked the blue marlin but didn't; at LEGENDARY_GUARANTEE the next one will. */
+    marlinDrought: integer("marlin_drought").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("profiles_user_idx").on(t.userId)],

@@ -1,0 +1,1 @@
+ALTER TABLE "profiles" ADD COLUMN "marlin_drought" integer DEFAULT 0 NOT NULL;
