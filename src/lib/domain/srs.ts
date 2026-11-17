@@ -67,16 +67,13 @@ export function pickCards(progress: readonly FactProgress[], opts: PickOptions):
 
   const due: FactProgress[] = [];
   const notDue: FactProgress[] = [];
-  const fresh: Card[] = [];
-  // New facts come only from the newest unlocked lake in mixed mode.
-  const ordered = LAKES.map((l) => l.table).filter((t) => tables.includes(t));
-  const frontier = opts.focusTable ?? ordered[ordered.length - 1];
+  const freshByTable = new Map<number, Card[]>();
 
   for (const table of tables) {
     for (const multiplier of MULTIPLIERS) {
       const p = known.get(`${table}x${multiplier}`);
       if (!p || p.box === 0) {
-        if (table === frontier) fresh.push({ table, multiplier });
+        freshByTable.set(table, [...(freshByTable.get(table) ?? []), { table, multiplier }]);
       } else if (p.dueAt.getTime() <= now.getTime()) {
         due.push(p);
       } else {
@@ -84,6 +81,12 @@ export function pickCards(progress: readonly FactProgress[], opts: PickOptions):
       }
     }
   }
+
+  // New facts come from one lake at a time: the earliest, in teaching order, that still has
+  // facts he hasn't tried. (Even with every lake unlocked, 3s come before 12s.)
+  const ordered = LAKES.map((l) => l.table).filter((t) => tables.includes(t));
+  const frontier = opts.focusTable ?? ordered.find((t) => freshByTable.has(t));
+  const fresh = frontier === undefined ? [] : (freshByTable.get(frontier) ?? []);
 
   const byUrgency = (a: FactProgress, b: FactProgress) =>
     a.box - b.box || a.dueAt.getTime() - b.dueAt.getTime();

@@ -12,7 +12,7 @@ import {
   type RawProblem,
   type WordProblem,
 } from "@/lib/domain/wordProblems";
-import { loadProgress, startTrip } from "./fishing";
+import { loadProgress, startTrip, unlockAllFor } from "./fishing";
 
 export const PROBLEMS_PER_SET = 5;
 
@@ -93,7 +93,8 @@ export async function takeAiCredit(db: Db, userId: string, now = new Date(), lim
  */
 export async function pickWordProblemFacts(db: Db, profileId: string, now = new Date()): Promise<Card[]> {
   const progress = await loadProgress(db, profileId);
-  const unlocked = new Set(lakeStatuses(progress).filter((l) => l.unlocked).map((l) => l.table));
+  const all = await unlockAllFor(db, profileId);
+  const unlocked = new Set(lakeStatuses(progress, all).filter((l) => l.unlocked).map((l) => l.table));
   const weak = progress
     .filter((p) => unlocked.has(p.table) && p.box >= 1 && p.multiplier > 1)
     .sort((a, b) => a.box - b.box || b.wrongCount - a.wrongCount)

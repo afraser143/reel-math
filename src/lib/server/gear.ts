@@ -49,3 +49,10 @@ export async function setGear(db: Db, userId: string, profileId: string, input: 
   await db.update(profiles).set(input).where(eq(profiles.id, profile.id));
   return getOwnedProfile(db, userId, profileId);
 }
+
+/** Opens (or re-locks) every lake and the Open Ocean. Needs the parent's password, like mod status. */
+export async function setUnlockAll(db: Db, userId: string, profileId: string, input: z.infer<typeof ModSchema>) {
+  const profile = await getOwnedProfile(db, userId, profileId);
+  await checkPassword(db, userId, input.password);
+  await db.update(profiles).set({ unlockAll: input.enabled }).where(eq(profiles.id, profile.id));
+}

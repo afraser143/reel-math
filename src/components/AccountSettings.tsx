@@ -9,32 +9,46 @@ interface Angler {
   nickname: string;
   avatar: string;
   isMod: boolean;
+  unlockAll: boolean;
 }
+
+type Switch = "mod" | "unlock";
 
 export function AccountSettings({ email, anglers }: { email: string; anglers: Angler[] }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [password, setPassword] = useState("");
-  const [modFor, setModFor] = useState<Angler | null>(null);
+  // A password-protected switch the parent is about to flip, and for whom.
+  const [pending, setPending] = useState<{ angler: Angler; kind: Switch } | null>(null);
   const [modPassword, setModPassword] = useState("");
+
+  const isOn = (a: Angler, kind: Switch) => (kind === "mod" ? a.isMod : a.unlockAll);
+
+  function openSwitch(a: Angler, kind: Switch) {
+    const same = pending?.angler.id === a.id && pending.kind === kind;
+    setPending(same ? null : { angler: a, kind });
+    setModPassword("");
+    setError(null);
+  }
 
   async function changeMod(e: React.FormEvent) {
     e.preventDefault();
-    if (!modFor) return;
+    if (!pending) return;
     setBusy(true);
     setError(null);
-    const res = await fetch(`/api/profiles/${modFor.id}/mod`, {
+    const { angler, kind } = pending;
+    const res = await fetch(`/api/profiles/${angler.id}/${kind === "mod" ? "mod" : "unlock-all"}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ enabled: !modFor.isMod, password: modPassword }),
+      body: JSON.stringify({ enabled: !isOn(angler, kind), password: modPassword }),
     });
     setBusy(false);
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       return setError(body.issues?.[0]?.message ?? body.error ?? "Something went wrong");
     }
-    setModFor(null);
+    setPending(null);
     setModPassword("");
     router.refresh();
   }
@@ -83,23 +97,12 @@ export function AccountSettings({ email, anglers }: { email: string; anglers: An
         ) : (
           <ul className="mt-3 divide-y-2 divide-line">
             {anglers.map((a) => (
-              <li key={a.id} className="py-2.5">
+              <li key={a.id} className="py-3">
                 <div className="flex items-center gap-3">
                   <span className="text-2xl">{a.avatar}</span>
                   <span className="min-w-0 flex-1 truncate font-bold">
                     {a.nickname} {a.isMod && <ModBadge className="ml-1" />}
                   </span>
-                  <button
-                    onClick={() => {
-                      setModFor(modFor?.id === a.id ? null : a);
-                      setModPassword("");
-                      setError(null);
-                    }}
-                    disabled={busy}
-                    className="rounded-xl border-2 border-line px-3 py-1.5 text-sm font-bold text-gold hover:border-gold disabled:opacity-50"
-                  >
-                    {a.isMod ? "Remove mod" : "Make mod"}
-                  </button>
                   <button
                     onClick={() => removeAngler(a)}
                     disabled={busy}
@@ -108,13 +111,25 @@ export function AccountSettings({ email, anglers }: { email: string; anglers: An
                     Delete
                   </button>
                 </div>
-                {modFor?.id === a.id && (
+                <div className="mt-2 flex flex-wrap gap-2 pl-10">
+                  <button
+                    onClick={() => openSwitch(a, "mod")}
+                    disabled={busy}
+                    className="rounded-xl border-2 border-line px-3 py-1.5 text-sm font-bold text-gold hover:border-gold disabled:opacity-50"
+                  >
+                    {a.isMod ? "Remove mod" : "Make mod"}
+                  </button>
+                  <button
+                    onClick={() => openSwitch(a, "unlock")}
+                    disabled={busy}
+                    className="rounded-xl border-2 border-line px-3 py-1.5 text-sm font-bold text-water hover:border-water disabled:opacity-50"
+                  >
+                    {a.unlockAll ? "🔒 Re-lock lakes" : "🔓 Unlock every lake"}
+                  </button>
+                </div>
+                {pending?.angler.id === a.id && (
                   <form onSubmit={changeMod} className="mt-2 rounded-2xl bg-gold-soft p-3">
-                    <p className="text-sm font-semibold text-ink">
-                      {a.isMod
-                        ? `Remove ${a.nickname}'s mod status? Their mods-only gear goes back to standard.`
-                        : `Make ${a.nickname} a mod? They get mods-only badges, boats and titles. Nothing changes about lakes or answers.`}
-                    </p>
+                    <p className="text-sm font-semibold text-ink">{switchMessage(a, pending.kind)}</p>
                     <div className="mt-2 flex flex-col gap-2 sm:flex-row">
                       <input
                         type="password"
@@ -127,7 +142,7 @@ export function AccountSettings({ email, anglers }: { email: string; anglers: An
                         className="min-w-0 flex-1 rounded-xl border-2 border-line bg-shore px-3 py-2 outline-none focus:border-water"
                       />
                       <Button type="submit" disabled={busy || !modPassword} className="py-2">
-                        {a.isMod ? "Remove mod" : "Make mod"}
+                        Confirm
                       </Button>
                     </div>
                   </form>
@@ -137,7 +152,8 @@ export function AccountSettings({ email, anglers }: { email: string; anglers: An
           </ul>
         )}
         <p className="mt-2 text-sm text-ink-soft">
-          Mods get special badges, boats and titles. Changing mod status asks for your password, so kids can&apos;t do it
+          Mods get special badges, boats and titles. Unlocking every lake opens all the lakes and the Open Ocean right
+          away; new facts still come in teaching order. Both ask for your password, so kids can&apos;t switch them
           themselves. Deleting an angler removes their progress and catches for good.
         </p>
       </Card>
@@ -166,4 +182,15 @@ export function AccountSettings({ email, anglers }: { email: string; anglers: An
       {error && <p className="rounded-xl bg-bobber-soft px-3 py-2 font-semibold text-bobber">{error}</p>}
     </div>
   );
+}
+
+function switchMessage(a: Angler, kind: Switch): string {
+  if (kind === "mod") {
+    return a.isMod
+      ? `Remove ${a.nickname}'s mod status? Their mods-only gear goes back to standard.`
+      : `Make ${a.nickname} a mod? They get mods-only badges, boats and titles. Nothing changes about lakes or answers.`;
+  }
+  return a.unlockAll
+    ? `Re-lock ${a.nickname}'s lakes? They'll open again as ${a.nickname} hooks facts, as usual. Their progress is kept.`
+    : `Open every lake and the Open Ocean for ${a.nickname} now? Progress is still tracked, and new facts still come in teaching order.`;
 }

@@ -15,7 +15,7 @@ export default async function LakeMap({ params }: { params: Promise<{ id: string
   const biggest = Math.max(0, ...livewell.bySpecies.map((s) => s.bestOz ?? 0));
   const base = `/anglers/${angler.id}`;
   const lastLake = lakes[lakes.length - 1];
-  const oceanOpen = lastLake.unlocked && lastLake.hooked >= UNLOCK_THRESHOLD;
+  const oceanOpen = angler.unlockAll || (lastLake.unlocked && lastLake.hooked >= UNLOCK_THRESHOLD);
   const gear = visibleGear(angler);
 
   return (
@@ -46,6 +46,12 @@ export default async function LakeMap({ params }: { params: Promise<{ id: string
           🎒 Gear
         </LinkButton>
       </div>
+
+      {angler.unlockAll && (
+        <p className="mb-4 rounded-2xl bg-sky px-4 py-2.5 text-center text-sm font-bold text-ink">
+          🔓 A grown-up opened every lake and the Open Ocean for you.
+        </p>
+      )}
 
       <div className="grid gap-3 sm:grid-cols-2">
         <LinkButton href={`${base}/cast`} className="py-5 text-xl">

@@ -23,6 +23,7 @@ const profileFields = {
   nickname: profiles.nickname,
   avatar: profiles.avatar,
   isMod: profiles.isMod,
+  unlockAll: profiles.unlockAll,
   boat: profiles.boat,
   title: profiles.title,
 };
@@ -66,8 +67,15 @@ export async function loadProgress(db: Db, profileId: string) {
   return db.select().from(factProgress).where(eq(factProgress.profileId, profileId));
 }
 
+/** Whether a grown-up has opened every lake for this angler. */
+export async function unlockAllFor(db: Db, profileId: string): Promise<boolean> {
+  const [row] = await db.select({ unlockAll: profiles.unlockAll }).from(profiles).where(eq(profiles.id, profileId));
+  return row?.unlockAll ?? false;
+}
+
 export async function getLakes(db: Db, profileId: string): Promise<LakeStatus[]> {
-  return lakeStatuses(await loadProgress(db, profileId));
+  const [progress, all] = await Promise.all([loadProgress(db, profileId), unlockAllFor(db, profileId)]);
+  return lakeStatuses(progress, all);
 }
 
 export async function startTrip(
@@ -75,13 +83,13 @@ export async function startTrip(
   profileId: string,
   opts: { focusTable?: number; water?: Water; now?: Date; rng?: () => number } = {},
 ): Promise<Card[]> {
-  const progress = await loadProgress(db, profileId);
-  const lakes = lakeStatuses(progress);
+  const [progress, all] = await Promise.all([loadProgress(db, profileId), unlockAllFor(db, profileId)]);
+  const lakes = lakeStatuses(progress, all);
   const unlockedTables = lakes.filter((l) => l.unlocked).map((l) => l.table);
   const now = opts.now ?? new Date();
 
   if (opts.water === "salt") {
-    if (!oceanUnlocked(progress)) throw new HttpError(403, "The ocean is still out of reach");
+    if (!oceanUnlocked(progress, all)) throw new HttpError(403, "The ocean is still out of reach");
     // Every table at once, weakest facts first; hardly any brand-new ones out here.
     return pickCards(progress as FactProgress[], { unlockedTables, now, maxNew: 2, rng: opts.rng });
   }
@@ -147,10 +155,11 @@ export async function recordAnswer(
 
   return db.transaction(async (tx) => {
     const progressBefore = await loadProgress(tx, profileId);
-    const before = lakeStatuses(progressBefore);
+    const all = await unlockAllFor(tx, profileId);
+    const before = lakeStatuses(progressBefore, all);
     const lake = before.find((l) => l.table === table);
     if (!lake?.unlocked) throw new HttpError(403, "That lake is still locked");
-    const oceanWasOpen = oceanUnlocked(progressBefore);
+    const oceanWasOpen = oceanUnlocked(progressBefore, all);
     if (input.water === "salt" && !oceanWasOpen) throw new HttpError(403, "The ocean is still out of reach");
 
     const [current] = await tx
@@ -218,10 +227,10 @@ export async function recordAnswer(
     };
 
     const progressAfter = await loadProgress(tx, profileId);
-    const after = lakeStatuses(progressAfter);
+    const after = lakeStatuses(progressAfter, all);
     const opened = after.find((l, i) => l.unlocked && !before[i].unlocked);
     if (opened) result.unlockedLake = { table: opened.table, name: opened.name };
-    if (!oceanWasOpen && oceanUnlocked(progressAfter)) result.unlockedOcean = true;
+    if (!oceanWasOpen && oceanUnlocked(progressAfter, all)) result.unlockedOcean = true;
     return result;
   });
 }

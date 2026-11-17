@@ -5,8 +5,17 @@ import { aiUsage, catches, factProgress, profiles, sessions, users } from "@/db/
 import { createSession, deleteAccount, deleteSession, login, register, userForToken } from "./auth";
 import { STANDARD_BADGES } from "@/lib/domain/gear";
 import { HttpError } from "./errors";
-import { setGear, setMod } from "./gear";
-import { createProfile, deleteProfile, getLakes, getLivewell, getOwnedProfile, recordAnswer, startTrip } from "./fishing";
+import { setGear, setMod, setUnlockAll } from "./gear";
+import {
+  createProfile,
+  deleteProfile,
+  getLakes,
+  getLivewell,
+  getOwnedProfile,
+  loadProgress,
+  recordAnswer,
+  startTrip,
+} from "./fishing";
 import { getWordProblems, takeAiCredit, type ProblemGenerator } from "./wordProblems";
 
 let db: Db;
@@ -281,5 +290,28 @@ describe("mods and gear", () => {
       status: 404,
     });
     await expect(setGear(db, other.id, profile.id, { avatar: "🐸" })).rejects.toMatchObject({ status: 404 });
+  });
+});
+
+describe("unlock every lake", () => {
+  it("needs the password, opens everything, and can be switched back off", async () => {
+    const { user, profile } = await setup();
+    await expect(
+      setUnlockAll(db, user.id, profile.id, { enabled: true, password: "wrong password" }),
+    ).rejects.toMatchObject({ status: 401 });
+    await expect(startTrip(db, profile.id, { focusTable: 7 })).rejects.toMatchObject({ status: 403 });
+
+    await setUnlockAll(db, user.id, profile.id, { enabled: true, password: creds.password });
+    expect((await getLakes(db, profile.id)).every((l) => l.unlocked)).toBe(true);
+    expect((await startTrip(db, profile.id, { focusTable: 7 })).every((c) => c.table === 7)).toBe(true);
+    expect(await startTrip(db, profile.id, { water: "salt" })).toHaveLength(10);
+    const r = await recordAnswer(db, profile.id, { table: 8, multiplier: 7, answer: 56, responseMs: 1500, water: "salt" });
+    expect(r.fish?.water).toBe("salt");
+    expect(r.unlockedLake).toBeUndefined(); // nothing to celebrate: it was all open already
+
+    await setUnlockAll(db, user.id, profile.id, { enabled: false, password: creds.password });
+    await expect(startTrip(db, profile.id, { focusTable: 7 })).rejects.toMatchObject({ status: 403 });
+    // Progress made while unlocked is kept.
+    expect((await loadProgress(db, profile.id)).some((p) => p.table === 8 && p.multiplier === 7)).toBe(true);
   });
 });

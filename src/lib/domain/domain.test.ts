@@ -269,3 +269,23 @@ describe("gear", () => {
     expect(plain.boat.id).toBe("canoe");
   });
 });
+
+describe("unlock every lake", () => {
+  it("opens every lake and the ocean, but new facts still start with the 2s", () => {
+    const all = lakeStatuses([], true);
+    expect(all.every((l) => l.unlocked)).toBe(true);
+    expect(oceanUnlocked([], true)).toBe(true);
+
+    const cards = pickCards([], { unlockedTables: all.map((l) => l.table), now, rng: seeded() });
+    expect(cards.every((c) => c.table === 2)).toBe(true); // not 12s first
+  });
+
+  it("introduces new facts from the earliest lake that still has some", () => {
+    // Every 2s fact tried, so new facts come from the next lake in teaching order: the 5s.
+    const twos = MULTIPLIERS.map((m) => ({ table: 2, multiplier: m, box: 2, dueAt: new Date(now.getTime() + 1e9) }));
+    const cards = pickCards(twos, { unlockedTables: [2, 5, 10], now, rng: seeded() });
+    const fresh = cards.filter((c) => c.table !== 2);
+    expect(fresh.length).toBeGreaterThan(0);
+    expect(fresh.every((c) => c.table === 5)).toBe(true);
+  });
+});

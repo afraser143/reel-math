@@ -20,7 +20,7 @@ export default async function LivewellPage({ params }: { params: Promise<{ id: s
   const [{ recent, bySpecies }, progress] = await Promise.all([getLivewell(db, angler.id), loadProgress(db, angler.id)]);
   const stats = new Map(bySpecies.map((s) => [s.speciesId, s]));
   const name = (id: string) => SPECIES.find((s) => s.id === id)?.name ?? id;
-  const ocean = oceanUnlocked(progress) || SPECIES.some((s) => s.water === "salt" && stats.has(s.id));
+  const ocean = oceanUnlocked(progress, angler.unlockAll) || SPECIES.some((s) => s.water === "salt" && stats.has(s.id));
 
   return (
     <Shell title="🪣 Livewell" back={{ href: `/anglers/${angler.id}`, label: "Lakes" }}>

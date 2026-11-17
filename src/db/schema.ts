@@ -44,6 +44,8 @@ export const profiles = pgTable(
     avatar: text("avatar").notNull(),
     /** Turned on by a parent (with their password): unlocks mods-only gear. */
     isMod: boolean("is_mod").notNull().default(false),
+    /** A grown-up's switch (also password-protected): every lake and the Open Ocean open. */
+    unlockAll: boolean("unlock_all").notNull().default(false),
     boat: text("boat").notNull().default("canoe"),
     /** A mod's title, shown under their name. */
     title: text("title"),

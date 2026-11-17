@@ -26,7 +26,7 @@ export default async function ProgressPage({ params }: { params: Promise<{ id: s
   const { db, angler } = await pageAngler((await params).id);
   const progress = await loadProgress(db, angler.id);
   const byFact = new Map(progress.map((p) => [`${p.table}x${p.multiplier}`, p]));
-  const lakes = lakeStatuses(progress);
+  const lakes = lakeStatuses(progress, angler.unlockAll);
   const mastered = progress.filter((p) => p.box >= MASTERED_BOX).length;
   const total = LAKES.length * MULTIPLIERS.length;
   const struggling = progress

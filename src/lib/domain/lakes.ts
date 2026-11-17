@@ -61,7 +61,8 @@ export interface LakeStatus extends Lake {
 }
 
 /** Works out which lakes are open and how far along each one is. */
-export function lakeStatuses(progress: readonly FactBox[]): LakeStatus[] {
+/** `unlockAll` is a grown-up's switch that opens every lake regardless of progress. */
+export function lakeStatuses(progress: readonly FactBox[], unlockAll = false): LakeStatus[] {
   const boxOf = new Map<string, number>();
   for (const p of progress) boxOf.set(`${p.table}x${p.multiplier}`, p.box);
 
@@ -74,7 +75,7 @@ export function lakeStatuses(progress: readonly FactBox[]): LakeStatus[] {
       if (box >= UNLOCK_BOX) hooked++;
       if (box >= MASTERED_BOX) mastered++;
     }
-    const unlocked = previousUnlocksNext;
+    const unlocked = unlockAll || previousUnlocksNext;
     previousUnlocksNext = unlocked && hooked >= UNLOCK_THRESHOLD;
     return { ...lake, unlocked, hooked, mastered, total: FACTS_PER_LAKE };
   });
@@ -86,7 +87,8 @@ export const OCEAN = {
   blurb: "Every table, mixed together. Bigger fish, faster answers.",
 } as const;
 
-export function oceanUnlocked(progress: readonly FactBox[]): boolean {
+export function oceanUnlocked(progress: readonly FactBox[], unlockAll = false): boolean {
+  if (unlockAll) return true;
   const last = lakeStatuses(progress).at(-1)!;
   return last.unlocked && last.hooked >= UNLOCK_THRESHOLD;
 }
