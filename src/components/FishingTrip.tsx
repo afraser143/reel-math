@@ -5,6 +5,7 @@ import { formatWeight, speedScore, type Water } from "@/lib/domain/fish";
 import type { AnswerResult } from "@/lib/server/fishing";
 import { isMuted, playFanfare, playFishOn, playMiss, playReel, playSplash, setMuted } from "@/lib/sounds";
 import { Confetti } from "./Celebrate";
+import { LegendaryCelebration } from "./Fireworks";
 import { Bobber, Fish } from "./Fish";
 import { NumberPad } from "./NumberPad";
 import { Button, Card, LinkButton, ProgressBar } from "./ui";
@@ -108,8 +109,11 @@ export function FishingTrip({
     const result: AnswerResult = await res.json();
     if (result.fish) {
       playSplash();
-      if (isBigMoment(result)) playFanfare();
-      else playFishOn();
+      // A legendary catch gets its own fireworks show, which plays its own sound.
+      if (result.fish.tier !== "legendary") {
+        if (isBigMoment(result)) playFanfare();
+        else playFishOn();
+      }
     } else {
       playMiss();
     }
@@ -250,6 +254,8 @@ function BiteMeter() {
 
 function ResultCard({ result, item, onNext, last }: { result: AnswerResult; item: Item; onNext: () => void; last: boolean }) {
   const fish = result.fish;
+  // The legendary show plays over the result card; closing it reveals the card as usual.
+  const [showLegend, setShowLegend] = useState(fish?.tier === "legendary");
   return (
     <Card className={`animate-splash text-center ${result.correct ? "" : "border-bobber"}`}>
       {fish ? (
@@ -316,7 +322,15 @@ function ResultCard({ result, item, onNext, last }: { result: AnswerResult; item
           <p className="text-sm text-ink-soft">{a.hint}</p>
         </div>
       ))}
-      {isBigMoment(result) && <Confetti pieces={result.achievements?.length ? 80 : 40} />}
+      {isBigMoment(result) && !showLegend && <Confetti pieces={result.achievements?.length ? 80 : 40} />}
+      {showLegend && fish && (
+        <LegendaryCelebration
+          speciesId={fish.speciesId}
+          speciesName={fish.speciesName}
+          weightOz={fish.weightOz}
+          onClose={() => setShowLegend(false)}
+        />
+      )}
       <Button onClick={onNext} className="mt-5 w-full max-w-xs" autoFocus>
         {last ? "Head to the dock" : "Next cast"}
       </Button>

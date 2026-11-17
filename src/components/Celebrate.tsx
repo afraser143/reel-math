@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { createPortal } from "react-dom";
 
 /** A burst of confetti over the page. Pure CSS; it doesn't move for anyone who prefers reduced motion. */
 export function Confetti({ pieces = 60 }: { pieces?: number }) {
@@ -17,7 +18,8 @@ export function Confetti({ pieces = 60 }: { pieces?: number }) {
       })),
     [pieces],
   );
-  return (
+  // Portaled to <body> so it covers the whole screen, not just the animated card it's used in.
+  return createPortal(
     <div className="pointer-events-none fixed inset-0 z-50 overflow-hidden" aria-hidden>
       {bits.map((b, i) => (
         <span
@@ -36,6 +38,7 @@ export function Confetti({ pieces = 60 }: { pieces?: number }) {
           }
         />
       ))}
-    </div>
+    </div>,
+    document.body,
   );
 }

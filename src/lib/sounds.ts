@@ -105,3 +105,52 @@ export function playFanfare() {
   [523, 659, 784, 1047].forEach((f, i) => tone(ac, f, 0.15 + i * 0.12, 0.35, "triangle", 0.2));
   tone(ac, 1047, 0.15 + 4 * 0.12, 0.6, "sine", 0.15);
 }
+
+/** The legendary show: whistling rockets, booms and crackles, then a big fanfare. */
+export function playFireworks() {
+  const ac = audio();
+  if (!ac) return;
+  const boom = (at: number) => {
+    // A deep thump plus a crackle of scattered noise pops.
+    const thump = ac.createOscillator();
+    const tg = ac.createGain();
+    thump.frequency.setValueAtTime(140, ac.currentTime + at);
+    thump.frequency.exponentialRampToValueAtTime(40, ac.currentTime + at + 0.4);
+    tg.gain.setValueAtTime(0.35, ac.currentTime + at);
+    tg.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + at + 0.5);
+    thump.connect(tg).connect(ac.destination);
+    thump.start(ac.currentTime + at);
+    thump.stop(ac.currentTime + at + 0.55);
+
+    const length = 0.6;
+    const buffer = ac.createBuffer(1, ac.sampleRate * length, ac.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() < 0.06 ? (Math.random() * 2 - 1) * (1 - i / data.length) : 0;
+    const crackle = ac.createBufferSource();
+    crackle.buffer = buffer;
+    const cg = ac.createGain();
+    cg.gain.value = 0.25;
+    crackle.connect(cg).connect(ac.destination);
+    crackle.start(ac.currentTime + at + 0.05);
+  };
+  const whistle = (at: number) => {
+    const osc = ac.createOscillator();
+    const g = ac.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(900, ac.currentTime + at);
+    osc.frequency.exponentialRampToValueAtTime(2200, ac.currentTime + at + 0.45);
+    g.gain.setValueAtTime(0.0001, ac.currentTime + at);
+    g.gain.linearRampToValueAtTime(0.05, ac.currentTime + at + 0.1);
+    g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + at + 0.45);
+    osc.connect(g).connect(ac.destination);
+    osc.start(ac.currentTime + at);
+    osc.stop(ac.currentTime + at + 0.5);
+  };
+  [0, 0.5, 0.9, 1.6, 2.1, 2.5, 3.2, 3.8].forEach((t) => {
+    whistle(t);
+    boom(t + 0.45);
+  });
+  // The triumphant fanfare over the top.
+  [523, 659, 784, 1047, 1319].forEach((f, i) => tone(ac, f, 0.3 + i * 0.14, 0.45, "triangle", 0.16));
+  tone(ac, 1047, 1.1, 1.2, "sine", 0.12);
+}
