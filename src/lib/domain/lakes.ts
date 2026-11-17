@@ -5,21 +5,23 @@
 export interface Lake {
   table: number;
   name: string;
+  /** Each lake's own emoji, matching its name. */
+  emoji: string;
   blurb: string;
 }
 
 export const LAKES: readonly Lake[] = [
-  { table: 2, name: "Lily Pad Pond", blurb: "Double it! A calm pond to wet your line." },
-  { table: 5, name: "Cattail Creek", blurb: "Count by fives along the reeds." },
-  { table: 10, name: "Big Ten Reservoir", blurb: "Just add a zero. Easy fishing." },
-  { table: 3, name: "Three Stump Cove", blurb: "Bass hide behind every third stump." },
-  { table: 4, name: "Dockside Bay", blurb: "Double, then double again." },
-  { table: 11, name: "Twin Point Lake", blurb: "Up to 9, the digits come in twins." },
-  { table: 6, name: "Hydrilla Flats", blurb: "Thick weeds, bigger bass." },
-  { table: 9, name: "Ninefoot Ledge", blurb: "Ten groups, take one away." },
-  { table: 7, name: "Lucky Seven Lake", blurb: "Tricky water. Lunkers live here." },
-  { table: 8, name: "Eight Mile River", blurb: "Double, double, double!" },
-  { table: 12, name: "Tournament Waters", blurb: "The big leagues. Ten plus two." },
+  { table: 2, name: "Lily Pad Pond", emoji: "🪷", blurb: "Double it! A calm pond to wet your line." },
+  { table: 5, name: "Cattail Creek", emoji: "🌾", blurb: "Count by fives along the reeds." },
+  { table: 10, name: "Big Ten Reservoir", emoji: "🏞️", blurb: "Just add a zero. Easy fishing." },
+  { table: 3, name: "Three Stump Cove", emoji: "🪵", blurb: "Bass hide behind every third stump." },
+  { table: 4, name: "Dockside Bay", emoji: "⚓", blurb: "Double, then double again." },
+  { table: 11, name: "Twin Point Lake", emoji: "🏔️", blurb: "Up to 9, the digits come in twins." },
+  { table: 6, name: "Hydrilla Flats", emoji: "🌿", blurb: "Thick weeds, bigger bass." },
+  { table: 9, name: "Ninefoot Ledge", emoji: "🪨", blurb: "Ten groups, take one away." },
+  { table: 7, name: "Lucky Seven Lake", emoji: "🍀", blurb: "Tricky water. Lunkers live here." },
+  { table: 8, name: "Eight Mile River", emoji: "🦦", blurb: "Double, double, double!" },
+  { table: 12, name: "Tournament Waters", emoji: "🏁", blurb: "The big leagues. Ten plus two." },
 ] as const;
 
 export const MULTIPLIERS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;

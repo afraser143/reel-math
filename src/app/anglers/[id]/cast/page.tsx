@@ -26,7 +26,7 @@ export default async function CastPage({
   }
   const lake = getLake(Number(query.lake));
   return (
-    <Shell title={lake ? lake.name : "Mixed bag"} back={back}>
+    <Shell title={lake ? `${lake.emoji} ${lake.name}` : "🎣 Mixed bag"} back={back}>
       <FishingTrip boat={boat} profileId={angler.id} mode="card" lake={lake?.table} />
     </Shell>
   );

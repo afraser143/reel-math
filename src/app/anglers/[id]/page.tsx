@@ -83,8 +83,11 @@ export default async function LakeMap({ params }: { params: Promise<{ id: string
                   <div className="text-xs font-bold uppercase tracking-wide text-ink-soft">{lake.table}s</div>
                   <div className="truncate text-lg font-black">{lake.name}</div>
                 </div>
-                <span className="text-2xl" aria-hidden>
-                  {!lake.unlocked ? "🔒" : done ? "🏆" : "🌊"}
+                <span className="relative text-3xl leading-none" aria-hidden>
+                  <span className={lake.unlocked ? "" : "opacity-40 grayscale"}>{lake.emoji}</span>
+                  {(!lake.unlocked || done) && (
+                    <span className="absolute -bottom-1 -right-2 text-base">{lake.unlocked ? "🏆" : "🔒"}</span>
+                  )}
                 </span>
               </div>
               {lake.unlocked ? (
