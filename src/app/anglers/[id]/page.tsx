@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { Card, LinkButton, ProgressBar, Shell } from "@/components/ui";
+import { Card, LinkButton, ModBadge, ProgressBar, Shell } from "@/components/ui";
 import { formatWeight } from "@/lib/domain/fish";
+import { visibleGear } from "@/lib/domain/gear";
 import { OCEAN, UNLOCK_THRESHOLD } from "@/lib/domain/lakes";
 import { getLakes, getLivewell } from "@/lib/server/fishing";
 import { pageAngler } from "@/lib/server/pages";
@@ -15,10 +16,11 @@ export default async function LakeMap({ params }: { params: Promise<{ id: string
   const base = `/anglers/${angler.id}`;
   const lastLake = lakes[lakes.length - 1];
   const oceanOpen = lastLake.unlocked && lastLake.hooked >= UNLOCK_THRESHOLD;
+  const gear = visibleGear(angler);
 
   return (
     <Shell
-      title={`${angler.avatar} ${angler.nickname}`}
+      title={`${gear.avatar} ${angler.nickname}`}
       back={{ href: "/anglers", label: "Anglers" }}
       right={
         <Link href={`${base}/livewell`} className="rounded-xl bg-white/15 px-3 py-1.5 text-sm font-bold hover:bg-white/25">
@@ -26,6 +28,25 @@ export default async function LakeMap({ params }: { params: Promise<{ id: string
         </Link>
       }
     >
+      <div className="mb-4 flex items-center gap-3 rounded-3xl border-2 border-line bg-card px-4 py-3">
+        <span className="text-4xl" aria-hidden>
+          {gear.boat.emoji}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={`truncate text-lg font-black ${angler.isMod ? "text-gold" : ""}`}>{angler.nickname}</span>
+            {angler.isMod && <ModBadge />}
+          </div>
+          <div className="text-sm text-ink-soft">
+            {gear.title ? `${gear.title} · ` : ""}
+            {gear.boat.name}
+          </div>
+        </div>
+        <LinkButton href={`${base}/gear`} variant="ghost" className="px-4 py-2 text-base">
+          🎒 Gear
+        </LinkButton>
+      </div>
+
       <div className="grid gap-3 sm:grid-cols-2">
         <LinkButton href={`${base}/cast`} className="py-5 text-xl">
           🎣 Cast a line
@@ -36,7 +57,7 @@ export default async function LakeMap({ params }: { params: Promise<{ id: string
       </div>
       <p className="mt-3 text-center text-sm text-ink-soft">
         {totalFish > 0
-          ? `${totalFish} bass landed so far. Biggest: ${formatWeight(biggest)}.`
+          ? `${totalFish} fish landed so far. Biggest: ${formatWeight(biggest)}.`
           : "Cast a line to catch your first bass!"}
       </p>
 

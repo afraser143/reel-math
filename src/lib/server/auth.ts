@@ -65,15 +65,20 @@ export async function userForToken(db: Db, token: string, now = new Date()): Pro
   return row ?? null;
 }
 
+/** Re-checks the parent's password before a sensitive change (made on a device kids also use). */
+export async function checkPassword(db: Db, userId: string, password: string): Promise<void> {
+  const [user] = await db.select().from(users).where(eq(users.id, userId));
+  if (!user || !(await verify(user.passwordHash, password))) {
+    throw new HttpError(401, "That password isn't right");
+  }
+}
+
 /**
  * Permanently deletes a parent account. Profiles, progress, catches, sessions and
  * AI usage counts are removed by ON DELETE CASCADE. Requires the password again.
  */
 export async function deleteAccount(db: Db, userId: string, password: string): Promise<void> {
-  const [user] = await db.select().from(users).where(eq(users.id, userId));
-  if (!user || !(await verify(user.passwordHash, password))) {
-    throw new HttpError(401, "That password isn't right");
-  }
+  await checkPassword(db, userId, password);
   await db.delete(users).where(eq(users.id, userId));
 }
 

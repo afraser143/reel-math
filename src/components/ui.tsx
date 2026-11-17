@@ -74,3 +74,12 @@ export function ProgressBar({ value, max, color = "bg-reed" }: { value: number; 
     </div>
   );
 }
+
+/** The 🛡️ MOD badge shown next to a mod's name. */
+export function ModBadge({ className = "" }: { className?: string }) {
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full bg-gold px-2 py-0.5 text-xs font-black text-white ${className}`}>
+      🛡️ MOD
+    </span>
+  );
+}

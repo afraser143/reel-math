@@ -3,12 +3,16 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Button, Card } from "./ui";
+import { visibleGear } from "@/lib/domain/gear";
+import { Button, Card, ModBadge } from "./ui";
 
 interface Angler {
   id: string;
   nickname: string;
   avatar: string;
+  isMod: boolean;
+  boat: string;
+  title: string | null;
 }
 
 export function AnglerPicker({ anglers, avatars }: { anglers: Angler[]; avatars: readonly string[] }) {
@@ -47,8 +51,9 @@ export function AnglerPicker({ anglers, avatars }: { anglers: Angler[]; avatars:
               href={`/anglers/${a.id}`}
               className="rounded-3xl border-2 border-line bg-card p-5 text-center transition hover:-translate-y-0.5 hover:border-water"
             >
-              <div className="text-5xl">{a.avatar}</div>
-              <div className="mt-2 truncate text-lg font-black">{a.nickname}</div>
+              <div className="text-5xl">{visibleGear(a).avatar}</div>
+              <div className={`mt-2 truncate text-lg font-black ${a.isMod ? "text-gold" : ""}`}>{a.nickname}</div>
+              {a.isMod && <ModBadge className="mt-1" />}
             </Link>
           ))}
         </div>

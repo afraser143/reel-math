@@ -1,4 +1,5 @@
 import {
+  boolean,
   date,
   index,
   integer,
@@ -41,6 +42,11 @@ export const profiles = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     nickname: text("nickname").notNull(),
     avatar: text("avatar").notNull(),
+    /** Turned on by a parent (with their password): unlocks mods-only gear. */
+    isMod: boolean("is_mod").notNull().default(false),
+    boat: text("boat").notNull().default("canoe"),
+    /** A mod's title, shown under their name. */
+    title: text("title"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("profiles_user_idx").on(t.userId)],

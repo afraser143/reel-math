@@ -6,18 +6,30 @@ import { catchFish, getSpecies, isTrophy, type Water } from "@/lib/domain/fish";
 import { guideTip } from "@/lib/domain/hints";
 import { isValidFact, lakeStatuses, oceanUnlocked, type LakeStatus } from "@/lib/domain/lakes";
 import { pickCards, review, type Card, type FactProgress } from "@/lib/domain/srs";
+import { STANDARD_BADGES } from "@/lib/domain/gear";
 import { HttpError, notFound } from "./errors";
 
-export const AVATARS = ["🎣", "🐟", "🚤", "🧢", "🦅", "🐊", "🐸", "🦆"] as const;
+/** Badges anyone can pick when creating an angler. Mods get more on the Gear page. */
+export const AVATARS = STANDARD_BADGES;
 
 export const NewProfileSchema = z.object({
   nickname: z.string().trim().min(1, "Pick a nickname").max(24, "Keep it under 24 letters"),
   avatar: z.enum(AVATARS),
 });
 
+/** The columns every profile lookup returns. */
+const profileFields = {
+  id: profiles.id,
+  nickname: profiles.nickname,
+  avatar: profiles.avatar,
+  isMod: profiles.isMod,
+  boat: profiles.boat,
+  title: profiles.title,
+};
+
 export async function listProfiles(db: Db, userId: string) {
   return db
-    .select({ id: profiles.id, nickname: profiles.nickname, avatar: profiles.avatar })
+    .select(profileFields)
     .from(profiles)
     .where(eq(profiles.userId, userId))
     .orderBy(asc(profiles.createdAt));
@@ -29,7 +41,7 @@ export async function createProfile(db: Db, userId: string, input: z.infer<typeo
   const [p] = await db
     .insert(profiles)
     .values({ userId, ...input })
-    .returning({ id: profiles.id, nickname: profiles.nickname, avatar: profiles.avatar });
+    .returning(profileFields);
   return p;
 }
 
@@ -37,7 +49,7 @@ export async function createProfile(db: Db, userId: string, input: z.infer<typeo
 export async function getOwnedProfile(db: Db, userId: string, profileId: string) {
   if (!z.uuid().safeParse(profileId).success) throw notFound("No such angler");
   const [p] = await db
-    .select({ id: profiles.id, nickname: profiles.nickname, avatar: profiles.avatar })
+    .select(profileFields)
     .from(profiles)
     .where(and(eq(profiles.id, profileId), eq(profiles.userId, userId)));
   if (!p) throw notFound("No such angler");

@@ -27,11 +27,14 @@ export function FishingTrip({
   mode,
   lake,
   water = "fresh",
+  boat,
 }: {
   profileId: string;
   mode: "card" | "word";
   lake?: number;
   water?: Water;
+  /** The angler's boat, shown heading out and back at the dock. */
+  boat?: { emoji: string; name: string };
 }) {
   const [items, setItems] = useState<Item[]>([]);
   const [index, setIndex] = useState(0);
@@ -126,13 +129,21 @@ export function FishingTrip({
   if (phase.kind === "loading") {
     return (
       <div className="py-16 text-center">
-        <Bobber className="animate-bob mx-auto h-20 w-14 text-ink" />
+        {boat ? (
+          <div className="animate-bob text-6xl" aria-hidden>
+            {boat.emoji}
+          </div>
+        ) : (
+          <Bobber className="animate-bob mx-auto h-20 w-14 text-ink" />
+        )}
         <p className="mt-4 text-lg font-bold text-ink-soft">
           {mode === "word"
             ? "The tournament director is writing your challenges…"
             : water === "salt"
-              ? "Heading out past the breakers…"
-              : "Baiting the hook…"}
+              ? `Heading out past the breakers${boat ? ` in your ${boat.name}` : ""}…`
+              : boat
+                ? `Heading out in your ${boat.name}…`
+                : "Baiting the hook…"}
         </p>
       </div>
     );
@@ -150,7 +161,7 @@ export function FishingTrip({
   }
 
   if (phase.kind === "done") {
-    return <TripSummary landed={landed} onAgain={() => setTripKey((k) => k + 1)} lakeMap={lakeMap} />;
+    return <TripSummary landed={landed} onAgain={() => setTripKey((k) => k + 1)} lakeMap={lakeMap} boat={boat} />;
   }
 
   const answered = phase.kind === "result" ? index + 1 : index;
@@ -275,12 +286,24 @@ function Badge({ className, children }: { className: string; children: React.Rea
   return <span className={`rounded-full px-3 py-1 text-sm font-black ${className}`}>{children}</span>;
 }
 
-function TripSummary({ landed, onAgain, lakeMap }: { landed: NonNullable<AnswerResult["fish"]>[]; onAgain: () => void; lakeMap: string }) {
+function TripSummary({
+  landed,
+  onAgain,
+  lakeMap,
+  boat,
+}: {
+  landed: NonNullable<AnswerResult["fish"]>[];
+  onAgain: () => void;
+  lakeMap: string;
+  boat?: { emoji: string; name: string };
+}) {
   const total = landed.reduce((n, f) => n + f.weightOz, 0);
   const biggest = landed.reduce<(typeof landed)[number] | null>((b, f) => (!b || f.weightOz > b.weightOz ? f : b), null);
   return (
     <Card className="animate-splash text-center">
-      <p className="text-sm font-black uppercase tracking-widest text-water">Back at the dock</p>
+      <p className="text-sm font-black uppercase tracking-widest text-water">
+        {boat ? `${boat.emoji} ` : ""}Back at the dock
+      </p>
       <h2 className="mt-1 text-3xl font-black">
         {landed.length} {landed.some((f) => f.water === "salt") ? "fish" : "bass"} landed
       </h2>

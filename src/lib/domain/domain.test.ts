@@ -257,3 +257,15 @@ describe("trophies", () => {
     expect(trophies).toBeGreaterThan(0);
   });
 });
+
+describe("gear", () => {
+  it("only shows mods-only gear while someone is a mod", async () => {
+    const { visibleGear } = await import("./gear");
+    const decked = { avatar: "👑", boat: "pirate_ship", title: "Captain" };
+    expect(visibleGear({ ...decked, isMod: true })).toMatchObject({ avatar: "👑", title: "Captain" });
+    expect(visibleGear({ ...decked, isMod: true }).boat.id).toBe("pirate_ship");
+    const plain = visibleGear({ ...decked, isMod: false });
+    expect(plain).toMatchObject({ avatar: "🎣", title: null });
+    expect(plain.boat.id).toBe("canoe");
+  });
+});

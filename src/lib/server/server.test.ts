@@ -3,7 +3,9 @@ import { createDb, withVerifiedSsl, type Db } from "@/db";
 import { LAKES, MULTIPLIERS, UNLOCK_THRESHOLD } from "@/lib/domain/lakes";
 import { aiUsage, catches, factProgress, profiles, sessions, users } from "@/db/schema";
 import { createSession, deleteAccount, deleteSession, login, register, userForToken } from "./auth";
+import { STANDARD_BADGES } from "@/lib/domain/gear";
 import { HttpError } from "./errors";
+import { setGear, setMod } from "./gear";
 import { createProfile, deleteProfile, getLakes, getLivewell, getOwnedProfile, recordAnswer, startTrip } from "./fishing";
 import { getWordProblems, takeAiCredit, type ProblemGenerator } from "./wordProblems";
 
@@ -233,5 +235,51 @@ describe("the Open Ocean", () => {
     expect(r.fish?.water).toBe("salt");
     const fresh = await recordAnswer(db, profile.id, { table: 7, multiplier: 9, answer: 63, responseMs: 1200 });
     expect(fresh.fish?.water).toBe("fresh");
+  });
+});
+
+describe("mods and gear", () => {
+  it("needs the parent's password to make someone a mod", async () => {
+    const { user, profile } = await setup();
+    await expect(setMod(db, user.id, profile.id, { enabled: true, password: "wrong password" })).rejects.toMatchObject({
+      status: 401,
+    });
+    expect((await getOwnedProfile(db, user.id, profile.id)).isMod).toBe(false);
+
+    await setMod(db, user.id, profile.id, { enabled: true, password: creds.password });
+    expect((await getOwnedProfile(db, user.id, profile.id)).isMod).toBe(true);
+  });
+
+  it("refuses mods-only gear for non-mods, but standard gear is fine", async () => {
+    const { user, profile } = await setup();
+    await expect(setGear(db, user.id, profile.id, { avatar: "👑" })).rejects.toMatchObject({ status: 403 });
+    await expect(setGear(db, user.id, profile.id, { boat: "pirate_ship" })).rejects.toMatchObject({ status: 403 });
+    await expect(setGear(db, user.id, profile.id, { title: "Captain" })).rejects.toMatchObject({ status: 403 });
+    const saved = await setGear(db, user.id, profile.id, { avatar: "🐸", boat: "rowboat" });
+    expect(saved).toMatchObject({ avatar: "🐸", boat: "rowboat", title: null });
+  });
+
+  it("lets a mod show off, and puts it all back when mod is removed", async () => {
+    const { user, profile } = await setup();
+    await setMod(db, user.id, profile.id, { enabled: true, password: creds.password });
+    const decked = await setGear(db, user.id, profile.id, { avatar: "🦈", boat: "pirate_ship", title: "Captain" });
+    expect(decked).toMatchObject({ avatar: "🦈", boat: "pirate_ship", title: "Captain" });
+
+    await setMod(db, user.id, profile.id, { enabled: false, password: creds.password });
+    expect(await getOwnedProfile(db, user.id, profile.id)).toMatchObject({
+      isMod: false,
+      avatar: STANDARD_BADGES[0],
+      boat: "canoe",
+      title: null,
+    });
+  });
+
+  it("won't let one parent change another family's angler", async () => {
+    const { profile } = await setup();
+    const other = await register(db, { ...creds, email: "other@example.com" });
+    await expect(setMod(db, other.id, profile.id, { enabled: true, password: creds.password })).rejects.toMatchObject({
+      status: 404,
+    });
+    await expect(setGear(db, other.id, profile.id, { avatar: "🐸" })).rejects.toMatchObject({ status: 404 });
   });
 });
