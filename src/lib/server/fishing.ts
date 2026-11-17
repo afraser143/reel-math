@@ -1,7 +1,8 @@
 import { and, asc, desc, eq, max, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Db } from "@/db";
-import { catches, factProgress, profiles } from "@/db/schema";
+import { achievements, catches, factProgress, profiles } from "@/db/schema";
+import { LIGHTNING_MS, newlyEarned } from "@/lib/domain/achievements";
 import { catchFish, getSpecies, isTrophy, type Water } from "@/lib/domain/fish";
 import { guideTip } from "@/lib/domain/hints";
 import { isValidFact, lakeStatuses, oceanUnlocked, type LakeStatus } from "@/lib/domain/lakes";
@@ -131,10 +132,15 @@ export interface AnswerResult {
     tier: "common" | "rare" | "legendary";
     lunker: boolean;
     personalBest: boolean;
+    /** The first time this angler has ever caught this species: show its fish fact. */
+    firstOfSpecies: boolean;
+    fact?: string;
   };
   unlockedLake?: { table: number; name: string };
   /** True on the answer that opens the Open Ocean. */
   unlockedOcean?: boolean;
+  /** Achievements earned with this answer, for the trophy-wall celebration. */
+  achievements?: { id: string; emoji: string; name: string; hint: string }[];
 }
 
 /**
@@ -201,6 +207,22 @@ export async function recordAnswer(
         },
       });
 
+    // Streaks for the "On Fire" and "Lightning Hands" achievements. A word problem keeps the
+    // fast streak where it was, since reading takes time.
+    const fast = input.mode !== "word" && responseMs <= LIGHTNING_MS;
+    const [streaks] = await tx
+      .update(profiles)
+      .set(
+        correct
+          ? {
+              correctStreak: sql`${profiles.correctStreak} + 1`,
+              fastStreak: fast ? sql`${profiles.fastStreak} + 1` : input.mode === "word" ? profiles.fastStreak : 0,
+            }
+          : { correctStreak: 0, fastStreak: 0 },
+      )
+      .where(eq(profiles.id, profileId))
+      .returning({ correctStreak: profiles.correctStreak, fastStreak: profiles.fastStreak });
+
     const result: AnswerResult = { correct, correctAnswer, box: next.box };
     if (!correct) {
       result.tip = guideTip(table, multiplier);
@@ -224,6 +246,8 @@ export async function recordAnswer(
       tier: species.tier,
       lunker: isTrophy(fish.speciesId, fish.weightOz),
       personalBest: best !== null && fish.weightOz > best,
+      firstOfSpecies: best === null,
+      fact: best === null ? species.fact : undefined,
     };
 
     const progressAfter = await loadProgress(tx, profileId);
@@ -231,6 +255,37 @@ export async function recordAnswer(
     const opened = after.find((l, i) => l.unlocked && !before[i].unlocked);
     if (opened) result.unlockedLake = { table: opened.table, name: opened.name };
     if (!oceanWasOpen && oceanUnlocked(progressAfter, all)) result.unlockedOcean = true;
+
+    // Achievements: check them all against the database plus this answer, and save any new ones.
+    const caught = await tx
+      .select({ speciesId: catches.speciesId, count: sql<number>`count(*)::int` })
+      .from(catches)
+      .where(eq(catches.profileId, profileId))
+      .groupBy(catches.speciesId);
+    const already = await tx
+      .select({ id: achievements.achievementId })
+      .from(achievements)
+      .where(eq(achievements.profileId, profileId));
+    const earned = newlyEarned(
+      {
+        totalFish: caught.reduce((n, c) => n + c.count, 0),
+        speciesCaught: new Set(caught.map((c) => c.speciesId)),
+        correct,
+        previousMisses: current?.wrongCount ?? 0,
+        fish: { speciesId: species.id, trophy: result.fish.lunker, tier: species.tier, water: species.water },
+        correctStreak: streaks.correctStreak,
+        fastStreak: streaks.fastStreak,
+        progress: progressAfter,
+      },
+      new Set(already.map((a) => a.id)),
+    );
+    if (earned.length) {
+      await tx
+        .insert(achievements)
+        .values(earned.map((a) => ({ profileId, achievementId: a.id, earnedAt: now })))
+        .onConflictDoNothing();
+      result.achievements = earned.map(({ id, emoji, name, hint }) => ({ id, emoji, name, hint }));
+    }
     return result;
   });
 }
@@ -253,4 +308,12 @@ export async function getLivewell(db: Db, profileId: string) {
     .where(eq(catches.profileId, profileId))
     .groupBy(catches.speciesId);
   return { recent, bySpecies };
+}
+
+/** The trophy wall: every achievement this angler has earned, and when. */
+export async function getAchievements(db: Db, profileId: string) {
+  return db
+    .select({ id: achievements.achievementId, earnedAt: achievements.earnedAt })
+    .from(achievements)
+    .where(eq(achievements.profileId, profileId));
 }

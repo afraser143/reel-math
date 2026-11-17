@@ -289,3 +289,36 @@ describe("unlock every lake", () => {
     expect(fresh.every((c) => c.table === 5)).toBe(true);
   });
 });
+
+describe("achievements and fish facts", () => {
+  const base = {
+    totalFish: 0, speciesCaught: new Set<string>(), correct: true, previousMisses: 0,
+    correctStreak: 0, fastStreak: 0, progress: [],
+  }; // prettier-ignore
+
+  it("every species has a fact", () => {
+    for (const s of SPECIES) expect(s.fact.length).toBeGreaterThan(30);
+  });
+
+  it("awards each achievement for the right thing, and never twice", async () => {
+    const { newlyEarned } = await import("./achievements");
+    const ids = (c: object, already = new Set<string>()) => newlyEarned({ ...base, ...c }, already).map((a) => a.id);
+
+    expect(ids({ totalFish: 1 })).toEqual(["first_catch"]);
+    expect(ids({ totalFish: 1 }, new Set(["first_catch"]))).toEqual([]);
+    expect(ids({ totalFish: 100 })).toEqual(expect.arrayContaining(["first_catch", "full_stringer", "century_club"]));
+    expect(ids({ fastStreak: 5 })).toContain("lightning_hands");
+    expect(ids({ fastStreak: 4 })).not.toContain("lightning_hands");
+    expect(ids({ correctStreak: 20 })).toContain("on_fire");
+    expect(ids({ previousMisses: 3 })).toContain("comeback_kid");
+    expect(ids({ previousMisses: 3, correct: false })).not.toContain("comeback_kid");
+    expect(ids({ fish: { speciesId: "blue_marlin", trophy: false, tier: "legendary", water: "salt" } })).toEqual(
+      expect.arrayContaining(["legend", "sea_legs"]),
+    );
+    const allBass = new Set(SPECIES.filter((s) => s.water === "fresh").map((s) => s.id));
+    expect(ids({ speciesCaught: allBass })).toContain("bass_collector");
+    const hookedTwos = MULTIPLIERS.slice(0, UNLOCK_THRESHOLD).map((m) => ({ table: 2, multiplier: m, box: 2 }));
+    expect(ids({ progress: hookedTwos })).toContain("lake_hooked");
+    expect(ids({ progress: hookedTwos })).not.toContain("lake_master");
+  });
+});

@@ -49,6 +49,9 @@ export const profiles = pgTable(
     boat: text("boat").notNull().default("canoe"),
     /** A mod's title, shown under their name. */
     title: text("title"),
+    /** Correct answers in a row, and fast (under 2 seconds) correct answers in a row, for achievements. */
+    correctStreak: integer("correct_streak").notNull().default(0),
+    fastStreak: integer("fast_streak").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("profiles_user_idx").on(t.userId)],
@@ -88,6 +91,19 @@ export const catches = pgTable(
     caughtAt: timestamp("caught_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("catches_profile_idx").on(t.profileId, t.caughtAt)],
+);
+
+/** Achievements on an angler's trophy wall. */
+export const achievements = pgTable(
+  "achievements",
+  {
+    profileId: uuid("profile_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
+    achievementId: text("achievement_id").notNull(),
+    earnedAt: timestamp("earned_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.profileId, t.achievementId] })],
 );
 
 /** Daily AI generation counts per parent account, for rate limiting. */

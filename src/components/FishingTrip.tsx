@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatWeight, speedScore, type Water } from "@/lib/domain/fish";
 import type { AnswerResult } from "@/lib/server/fishing";
+import { isMuted, playFanfare, playFishOn, playMiss, playReel, playSplash, setMuted } from "@/lib/sounds";
+import { Confetti } from "./Celebrate";
 import { Bobber, Fish } from "./Fish";
 import { NumberPad } from "./NumberPad";
 import { Button, Card, LinkButton, ProgressBar } from "./ui";
@@ -43,6 +45,8 @@ export function FishingTrip({
   const [sending, setSending] = useState(false);
   const [landed, setLanded] = useState<NonNullable<AnswerResult["fish"]>[]>([]);
   const [tripKey, setTripKey] = useState(0);
+  const [muted, setMutedState] = useState(false);
+  useEffect(() => setMutedState(isMuted()), []);
   const askedAt = useRef(0);
 
   const lakeMap = `/anglers/${profileId}`;
@@ -82,6 +86,7 @@ export function FishingTrip({
   const submit = useCallback(async () => {
     if (!item || !input || sending) return;
     setSending(true);
+    playReel();
     const responseMs = Math.round(performance.now() - askedAt.current);
     const res = await fetch(`/api/profiles/${profileId}/answers`, {
       method: "POST",
@@ -101,6 +106,13 @@ export function FishingTrip({
       return setPhase({ kind: "error", message: body.error ?? "The line got tangled. Try again." });
     }
     const result: AnswerResult = await res.json();
+    if (result.fish) {
+      playSplash();
+      if (isBigMoment(result)) playFanfare();
+      else playFishOn();
+    } else {
+      playMiss();
+    }
     if (result.fish) setLanded((l) => [...l, result.fish!]);
     if (!result.correct && !item.retry) setItems((list) => [...list, { ...item, retry: true }]);
     setPhase({ kind: "result", result });
@@ -173,6 +185,18 @@ export function FishingTrip({
         <span className="shrink-0 text-sm font-bold text-ink-soft">
           {Math.min(index + 1, items.length)}/{items.length}
         </span>
+        <button
+          type="button"
+          onClick={() => {
+            setMuted(!muted);
+            setMutedState(!muted);
+          }}
+          aria-label={muted ? "Turn sound on" : "Turn sound off"}
+          aria-pressed={!muted}
+          className="shrink-0 rounded-full border-2 border-line bg-card px-2.5 py-1 text-lg leading-none"
+        >
+          {muted ? "🔇" : "🔊"}
+        </button>
       </div>
 
       {phase.kind === "asking" && (
@@ -231,7 +255,9 @@ function ResultCard({ result, item, onNext, last }: { result: AnswerResult; item
       {fish ? (
         <>
           <p className="text-sm font-black uppercase tracking-widest text-reed">Fish on!</p>
-          <Fish speciesId={fish.speciesId} weightOz={fish.weightOz} className="mx-auto my-2 h-32 w-56" />
+          <div className={isBigMoment(result) ? "animate-leap" : ""}>
+            <Fish speciesId={fish.speciesId} weightOz={fish.weightOz} className="mx-auto my-2 h-32 w-56" />
+          </div>
           <p className="text-2xl font-black">
             {formatWeight(fish.weightOz)} {fish.speciesName}
           </p>
@@ -275,6 +301,22 @@ function ResultCard({ result, item, onNext, last }: { result: AnswerResult; item
           🌊 You reached the Open Ocean! Saltwater fish are biting.
         </p>
       )}
+      {fish?.fact && (
+        <div className="mx-auto mt-4 max-w-md rounded-2xl border-2 border-water/40 bg-sky px-4 py-3 text-left">
+          <p className="text-xs font-black uppercase tracking-widest text-water">🐟 New species! Fish fact</p>
+          <p className="mt-1 font-semibold text-ink">{fish.fact}</p>
+        </div>
+      )}
+      {result.achievements?.map((a) => (
+        <div key={a.id} className="animate-splash mt-4 rounded-2xl bg-gold-soft px-4 py-3">
+          <p className="text-xs font-black uppercase tracking-widest text-gold">🏆 Trophy wall</p>
+          <p className="mt-0.5 text-xl font-black text-ink">
+            {a.emoji} {a.name}
+          </p>
+          <p className="text-sm text-ink-soft">{a.hint}</p>
+        </div>
+      ))}
+      {isBigMoment(result) && <Confetti pieces={result.achievements?.length ? 80 : 40} />}
       <Button onClick={onNext} className="mt-5 w-full max-w-xs" autoFocus>
         {last ? "Head to the dock" : "Next cast"}
       </Button>
@@ -326,4 +368,10 @@ function TripSummary({
       </div>
     </Card>
   );
+}
+
+/** Lunkers, rare and legendary fish, and new achievements get confetti and a fanfare. */
+function isBigMoment(result: AnswerResult): boolean {
+  const fish = result.fish;
+  return Boolean(result.achievements?.length || (fish && (fish.lunker || fish.tier !== "common")));
 }

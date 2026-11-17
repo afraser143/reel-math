@@ -9,6 +9,7 @@ import { setGear, setMod, setUnlockAll } from "./gear";
 import {
   createProfile,
   deleteProfile,
+  getAchievements,
   getLakes,
   getLivewell,
   getOwnedProfile,
@@ -313,5 +314,48 @@ describe("unlock every lake", () => {
     await expect(startTrip(db, profile.id, { focusTable: 7 })).rejects.toMatchObject({ status: 403 });
     // Progress made while unlocked is kept.
     expect((await loadProgress(db, profile.id)).some((p) => p.table === 8 && p.multiplier === 7)).toBe(true);
+  });
+});
+
+describe("achievements, streaks and fish facts", () => {
+  const ans = (profileId: string, m: number, ms: number, right = true, t = 0) =>
+    recordAnswer(
+      db,
+      profileId,
+      { table: 2, multiplier: m, answer: 2 * m + (right ? 0 : 1), responseMs: ms },
+      { now: new Date(Date.now() + t * 60_000), rng: () => 0 },
+    );
+
+  it("awards First Catch once, with the species' fact on its first catch only", async () => {
+    const { profile } = await setup();
+    const first = await ans(profile.id, 3, 3000);
+    expect(first.achievements?.map((a) => a.id)).toContain("first_catch");
+    expect(first.fish?.firstOfSpecies).toBe(true);
+    expect(first.fish?.fact).toMatch(/largemouth/i); // rng 0 always lands a largemouth
+
+    const second = await ans(profile.id, 4, 3000);
+    expect(second.achievements ?? []).not.toContainEqual(expect.objectContaining({ id: "first_catch" }));
+    expect(second.fish?.firstOfSpecies).toBe(false);
+    expect(second.fish?.fact).toBeUndefined();
+    expect((await getAchievements(db, profile.id)).map((a) => a.id)).toContain("first_catch");
+  });
+
+  it("builds streaks and resets them on a miss", async () => {
+    const { profile } = await setup();
+    for (let m = 1; m <= 4; m++) expect((await ans(profile.id, m, 1500)).achievements ?? []).not.toContainEqual(
+      expect.objectContaining({ id: "lightning_hands" }),
+    );
+    await ans(profile.id, 5, 1500, false); // a miss breaks the streak
+    for (let m = 6; m <= 9; m++) await ans(profile.id, m, 1500);
+    expect((await getAchievements(db, profile.id)).map((a) => a.id)).not.toContain("lightning_hands");
+    const fifth = await ans(profile.id, 10, 1500);
+    expect(fifth.achievements?.map((a) => a.id)).toContain("lightning_hands");
+  });
+
+  it("calls you a Comeback Kid after three misses on a fact", async () => {
+    const { profile } = await setup();
+    for (let i = 0; i < 3; i++) await ans(profile.id, 7, 3000, false, i);
+    const r = await ans(profile.id, 7, 3000, true, 10);
+    expect(r.achievements?.map((a) => a.id)).toContain("comeback_kid");
   });
 });

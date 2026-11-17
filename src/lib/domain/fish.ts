@@ -21,12 +21,43 @@ export interface Species {
   trophyLb: number;
   shape: Shape;
   color: string;
+  /** A true fact, shown the first time an angler catches one. */
+  fact: string;
 }
 
 const s = (
   id: string, name: string, water: Water, minLb: number, maxLb: number, weight: number,
   tier: Tier, trophyLb: number, shape: Shape, color: string,
-): Species => ({ id, name, water, minLb, maxLb, weight, tier, trophyLb, shape, color });
+): Species => ({ id, name, water, minLb, maxLb, weight, tier, trophyLb, shape, color, fact: FISH_FACTS[id] });
+
+/**
+ * One true fact per species. Kept to well-established facts; where a famous claim is disputed
+ * (like exact sailfish speeds), it's phrased so it stays true.
+ */
+const FISH_FACTS: Record<string, string> = {
+  largemouth:
+    "Largemouth bass can swallow prey up to about half their own length: frogs, crayfish, and even the occasional duckling!",
+  smallmouth:
+    "Smallmouth bass love cool, clear, rocky water, and they're famous for leaping out of the water when they're hooked.",
+  spotted: "Spotted bass get their name from the rows of little dark spots along their lower sides.",
+  guadalupe: "The Guadalupe bass lives only in Texas rivers and streams, and it's the official state fish of Texas.",
+  redeye: "Redeye bass are named for their bright red eyes. They live in clear, rocky streams in the southeastern U.S.",
+  speckled_trout:
+    "Speckled trout aren't trout at all! They're a kind of drum fish, also called spotted seatrout.",
+  redfish:
+    "Redfish have a black spot near the tail. Scientists think it may trick predators into attacking the wrong end.",
+  flounder:
+    "A baby flounder swims upright with an eye on each side. As it grows, one eye slowly moves over until both are on top!",
+  snook:
+    "Snook can't handle cold water, so they live in warm coastal places like southern Florida, often hiding near mangroves.",
+  mahi: "Mahi-mahi grow amazingly fast: many reach full adult size in less than a year.",
+  tarpon:
+    "Tarpon can gulp air from the surface, so they can survive in warm water that has very little oxygen in it.",
+  sailfish:
+    "Sailfish are often called the fastest fish in the ocean. They can fold their giant sail flat to swim faster.",
+  blue_marlin:
+    "Blue marlin can weigh more than 1,000 pounds, and the biggest ones are almost always females.",
+};
 
 export const SPECIES: readonly Species[] = [
   s("largemouth", "Largemouth Bass", "fresh", 1, 9, 50, "common", 5, "bass", "#4d7c0f"),

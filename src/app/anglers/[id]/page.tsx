@@ -42,9 +42,14 @@ export default async function LakeMap({ params }: { params: Promise<{ id: string
             {gear.boat.name}
           </div>
         </div>
-        <LinkButton href={`${base}/gear`} variant="ghost" className="px-4 py-2 text-base">
-          🎒 Gear
-        </LinkButton>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <LinkButton href={`${base}/trophies`} variant="ghost" className="px-3 py-2 text-base">
+            🏆 Trophies
+          </LinkButton>
+          <LinkButton href={`${base}/gear`} variant="ghost" className="px-3 py-2 text-base">
+            🎒 Gear
+          </LinkButton>
+        </div>
       </div>
 
       {angler.unlockAll && (
