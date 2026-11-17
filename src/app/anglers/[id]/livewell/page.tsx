@@ -1,42 +1,38 @@
 import { Fish } from "@/components/Fish";
 import { Card, Shell } from "@/components/ui";
-import { formatWeight, SPECIES } from "@/lib/domain/fish";
-import { getLivewell } from "@/lib/server/fishing";
+import { formatWeight, SPECIES, type Species } from "@/lib/domain/fish";
+import { oceanUnlocked } from "@/lib/domain/lakes";
+import { getLivewell, loadProgress } from "@/lib/server/fishing";
 import { pageAngler } from "@/lib/server/pages";
 
 export const metadata = { title: "Livewell · Reel Math" };
 
+type SpeciesStats = Awaited<ReturnType<typeof getLivewell>>["bySpecies"][number];
+
+const TIER_HINT = {
+  common: "Not caught yet.",
+  rare: "Only bites on lightning-fast answers.",
+  legendary: "Only bites on lightning-fast answers to facts you know cold.",
+};
+
 export default async function LivewellPage({ params }: { params: Promise<{ id: string }> }) {
   const { db, angler } = await pageAngler((await params).id);
-  const { recent, bySpecies } = await getLivewell(db, angler.id);
+  const [{ recent, bySpecies }, progress] = await Promise.all([getLivewell(db, angler.id), loadProgress(db, angler.id)]);
   const stats = new Map(bySpecies.map((s) => [s.speciesId, s]));
   const name = (id: string) => SPECIES.find((s) => s.id === id)?.name ?? id;
+  const ocean = oceanUnlocked(progress) || SPECIES.some((s) => s.water === "salt" && stats.has(s.id));
 
   return (
     <Shell title="🪣 Livewell" back={{ href: `/anglers/${angler.id}`, label: "Lakes" }}>
-      <h2 className="mb-3 text-xl font-black">Species log</h2>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {SPECIES.map((s) => {
-          const st = stats.get(s.id);
-          return (
-            <Card key={s.id} className={`flex items-center gap-4 ${st ? "" : "opacity-60"}`}>
-              <Fish speciesId={s.id} className={`h-14 w-24 shrink-0 ${st ? "" : "grayscale brightness-50"}`} />
-              <div className="min-w-0">
-                <div className="font-black">
-                  {st ? s.name : "???"} {s.rare && <span className="text-xs text-bobber">RARE</span>}
-                </div>
-                {st ? (
-                  <div className="text-sm text-ink-soft">
-                    {st.count} caught · best {formatWeight(st.bestOz ?? 0)}
-                  </div>
-                ) : (
-                  <div className="text-sm text-ink-soft">{s.rare ? "Only bites on lightning-fast answers." : "Not caught yet."}</div>
-                )}
-              </div>
-            </Card>
-          );
-        })}
-      </div>
+      <SpeciesLog title="Lakes" species={SPECIES.filter((s) => s.water === "fresh")} stats={stats} />
+
+      {ocean ? (
+        <SpeciesLog title="Open Ocean" species={SPECIES.filter((s) => s.water === "salt")} stats={stats} />
+      ) : (
+        <p className="mt-6 rounded-3xl border-2 border-dashed border-line p-4 text-ink-soft">
+          🌊 Saltwater species will show up here once you reach the Open Ocean.
+        </p>
+      )}
 
       <h2 className="mb-3 mt-8 text-xl font-black">Recent catches</h2>
       {recent.length === 0 ? (
@@ -57,5 +53,34 @@ export default async function LivewellPage({ params }: { params: Promise<{ id: s
         </Card>
       )}
     </Shell>
+  );
+}
+
+function SpeciesLog({ title, species, stats }: { title: string; species: Species[]; stats: Map<string, SpeciesStats> }) {
+  return (
+    <>
+      <h2 className="mb-3 mt-6 text-xl font-black first:mt-0">{title}</h2>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {species.map((s) => {
+          const st = stats.get(s.id);
+          return (
+            <Card key={s.id} className={`flex items-center gap-4 ${st ? "" : "opacity-60"}`}>
+              <Fish speciesId={s.id} className={`h-14 w-24 shrink-0 ${st ? "" : "brightness-50 grayscale"}`} />
+              <div className="min-w-0">
+                <div className="font-black">
+                  {st ? s.name : "???"}{" "}
+                  {s.tier !== "common" && (
+                    <span className={`text-xs ${s.tier === "legendary" ? "text-gold" : "text-bobber"}`}>{s.tier.toUpperCase()}</span>
+                  )}
+                </div>
+                <div className="text-sm text-ink-soft">
+                  {st ? `${st.count} caught · best ${formatWeight(st.bestOz ?? 0)}` : TIER_HINT[s.tier]}
+                </div>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+    </>
   );
 }

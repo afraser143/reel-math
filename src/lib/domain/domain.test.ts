@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { catchFish, formatWeight, SPECIES, speedScore } from "./fish";
+import { catchFish, formatWeight, isTrophy, SPECIES, speedScore } from "./fish";
 import { guideTip } from "./hints";
-import { LAKES, lakeStatuses, MULTIPLIERS, UNLOCK_THRESHOLD } from "./lakes";
+import { LAKES, lakeStatuses, MULTIPLIERS, oceanUnlocked, UNLOCK_THRESHOLD } from "./lakes";
 import { BOX_INTERVALS_MS, FLUENT_MS, MAX_BOX, pickCards, RETRY_MS, review, type FactProgress } from "./srs";
 import { assembleProblems, templateProblem, validateProblem } from "./wordProblems";
 
@@ -114,7 +114,7 @@ describe("catchFish", () => {
 
   it("only gives rare species for fast answers on known facts", () => {
     const rng = seeded(3);
-    const isRare = (id: string) => SPECIES.find((s) => s.id === id)!.rare;
+    const isRare = (id: string) => SPECIES.find((s) => s.id === id)!.tier !== "common";
     let rareOnFast = 0;
     for (let i = 0; i < 500; i++) {
       expect(isRare(catchFish(9000, 5, rng).speciesId)).toBe(false); // slow answer
@@ -197,5 +197,63 @@ describe("word problems", () => {
     const problems = assembleProblems(targets, [{ ...good }, { a: 6, b: 4, answer: 25, story: "6 docks, 4 boats. How many?" }]);
     expect(problems.map((p) => p.source)).toEqual(["ai", "template"]);
     expect(problems[1]).toMatchObject({ table: 6, multiplier: 4 });
+  });
+});
+
+describe("the Open Ocean", () => {
+  const hooked = (tables: readonly number[], count = UNLOCK_THRESHOLD) =>
+    tables.flatMap((table) => MULTIPLIERS.slice(0, count).map((m) => ({ table, multiplier: m, box: 2 })));
+  const allTables = LAKES.map((l) => l.table);
+
+  it("opens only once the last lake is hooked", () => {
+    expect(oceanUnlocked([])).toBe(false);
+    expect(oceanUnlocked(hooked(allTables.slice(0, -1)))).toBe(false); // every lake open, last not hooked
+    expect(oceanUnlocked(hooked(allTables, UNLOCK_THRESHOLD - 1))).toBe(false);
+    expect(oceanUnlocked(hooked(allTables))).toBe(true);
+  });
+
+  it("lands only saltwater fish in salt water, and only bass in the lakes", () => {
+    const rng = seeded(21);
+    const speciesOf = (id: string) => SPECIES.find((s) => s.id === id)!;
+    for (let i = 0; i < 300; i++) {
+      // Catch once, then look it up (catching inside find() would roll a new fish per species).
+      const salt = speciesOf(catchFish(Math.floor(rng() * 9000), 5, rng, "salt").speciesId);
+      const fresh = speciesOf(catchFish(Math.floor(rng() * 9000), 5, rng, "fresh").speciesId);
+      expect(salt.water).toBe("salt");
+      expect(fresh.water).toBe("fresh");
+    }
+  });
+
+  it("saves the blue marlin for lightning-fast answers to facts he knows cold", () => {
+    const tierOf = (id: string) => SPECIES.find((s) => s.id === id)!.tier;
+    const rng = seeded(8);
+    let marlins = 0;
+    for (let i = 0; i < 3000; i++) {
+      expect(tierOf(catchFish(4000, 5, rng, "salt").speciesId)).not.toBe("legendary"); // quick, but not lightning
+      expect(tierOf(catchFish(800, 2, rng, "salt").speciesId)).not.toBe("legendary"); // fact not known well yet
+      if (tierOf(catchFish(800, 4, rng, "salt").speciesId) === "legendary") marlins++;
+    }
+    expect(marlins).toBeGreaterThan(0);
+  });
+
+  it("calls a trophy by each species' own size", () => {
+    expect(isTrophy("largemouth", 5 * 16)).toBe(true);
+    expect(isTrophy("redfish", 10 * 16)).toBe(false); // a decent redfish, but no trophy
+    expect(isTrophy("redfish", 22 * 16)).toBe(false);
+    expect(isTrophy("redfish", 25 * 16)).toBe(true);
+    expect(isTrophy("blue_marlin", 520 * 16)).toBe(true);
+  });
+});
+
+describe("trophies", () => {
+  it("are uncommon for a quick (2.5 second) answerer in the ocean", () => {
+    const rng = seeded(5);
+    let trophies = 0;
+    for (let i = 0; i < 2000; i++) {
+      const fish = catchFish(2500, 3, rng, "salt");
+      if (isTrophy(fish.speciesId, fish.weightOz)) trophies++;
+    }
+    expect(trophies / 2000).toBeLessThan(0.3);
+    expect(trophies).toBeGreaterThan(0);
   });
 });

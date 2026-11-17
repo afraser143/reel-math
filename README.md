@@ -18,6 +18,7 @@ I built this for my 9-year-old, who loves fishing and didn't love times-table fl
 
 - **Spaced repetition (Leitner boxes).** Each fact moves through boxes 0–5. A correct answer in under 6 seconds moves it up a box, and higher boxes come back less often (10 minutes, then 1, 3, 7 and 14 days). A miss drops the fact to box 1 and brings it back within a minute, and missed facts get a second try at the end of the trip.
 - **Fishing rewards that measure fluency.** A bite meter drains while he thinks. Answer speed sets the fish's weight, and rare species (Guadalupe bass, redeye bass) only bite on quick answers to facts he already knows.
+- **The Open Ocean.** Once every lake is open and the 12s are hooked, a saltwater level unlocks: facts from every table mixed together, weakest first, with ocean fish. Rare tarpon and sailfish need a quick answer to a fact he's seen before, and the legendary blue marlin needs a lightning-fast answer (under about 2.8 seconds) to a fact he knows well. Each species has its own trophy weight, set near the top of its size range so trophies stay special.
 - **Lakes unlock in teaching order:** 2s, 5s and 10s first; 7s, 8s and 12s last. A lake opens once 9 of the 12 facts in the lake before it are in box 2 or higher.
 - **Guide tips on misses.** Each missed fact gets a strategy using the easier factor ("Times 9: do 7 × 10 = 70, then take away one 7"), not just the answer.
 - **AI tournament challenges.** Claude writes short fishing story problems for the facts he struggles with most. See [AI design](#ai-design) for how a bad generation is kept from teaching a wrong fact.
@@ -87,7 +88,7 @@ CONTACT_EMAIL=you@example.com                                # contact shown on 
 To use real Postgres locally, run `docker compose up -d` and set `DATABASE_URL` as above. In development, migrations run automatically on the first request; you can also run them with `npm run db:migrate`.
 
 ```bash
-npm test             # 34 unit + integration tests
+npm test             # 41 unit + integration tests
 npm run typecheck
 npm run lint
 ```

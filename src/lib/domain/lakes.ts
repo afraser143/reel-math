@@ -79,3 +79,14 @@ export function lakeStatuses(progress: readonly FactBox[]): LakeStatus[] {
     return { ...lake, unlocked, hooked, mastered, total: FACTS_PER_LAKE };
   });
 }
+
+/** The Open Ocean: mixed review of every table, with saltwater fish. Opens like the next lake would. */
+export const OCEAN = {
+  name: "Open Ocean",
+  blurb: "Every table, mixed together. Bigger fish, faster answers.",
+} as const;
+
+export function oceanUnlocked(progress: readonly FactBox[]): boolean {
+  const last = lakeStatuses(progress).at(-1)!;
+  return last.unlocked && last.hooked >= UNLOCK_THRESHOLD;
+}

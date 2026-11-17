@@ -25,10 +25,23 @@ export function Card({ className = "", children }: { className?: string; childre
 }
 
 /** Header strip with the water band used on every screen. */
-export function Shell({ title, back, right, children }: { title: string; back?: { href: string; label: string }; right?: ReactNode; children: ReactNode }) {
+export function Shell({
+  title,
+  back,
+  right,
+  theme = "lake",
+  children,
+}: {
+  title: string;
+  back?: { href: string; label: string };
+  right?: ReactNode;
+  theme?: "lake" | "ocean";
+  children: ReactNode;
+}) {
+  const header = theme === "ocean" ? "from-ocean to-ocean-deep" : "from-water to-water-deep";
   return (
     <div className="min-h-dvh">
-      <header className="bg-gradient-to-b from-water to-water-deep text-white">
+      <header className={`bg-gradient-to-b ${header} text-white`}>
         <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 pb-6 pt-4">
           {back && (
             <Link href={back.href} className="rounded-xl bg-white/15 px-3 py-1.5 text-sm font-bold hover:bg-white/25">

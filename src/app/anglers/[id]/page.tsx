@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Card, LinkButton, ProgressBar, Shell } from "@/components/ui";
 import { formatWeight } from "@/lib/domain/fish";
-import { UNLOCK_THRESHOLD } from "@/lib/domain/lakes";
+import { OCEAN, UNLOCK_THRESHOLD } from "@/lib/domain/lakes";
 import { getLakes, getLivewell } from "@/lib/server/fishing";
 import { pageAngler } from "@/lib/server/pages";
 
@@ -13,6 +13,8 @@ export default async function LakeMap({ params }: { params: Promise<{ id: string
   const totalFish = livewell.bySpecies.reduce((n, s) => n + s.count, 0);
   const biggest = Math.max(0, ...livewell.bySpecies.map((s) => s.bestOz ?? 0));
   const base = `/anglers/${angler.id}`;
+  const lastLake = lakes[lakes.length - 1];
+  const oceanOpen = lastLake.unlocked && lastLake.hooked >= UNLOCK_THRESHOLD;
 
   return (
     <Shell
@@ -85,6 +87,33 @@ export default async function LakeMap({ params }: { params: Promise<{ id: string
           );
         })}
       </ol>
+
+      {oceanOpen ? (
+        <Link
+          href={`${base}/cast?water=salt`}
+          className="mt-4 block overflow-hidden rounded-3xl bg-gradient-to-br from-ocean to-ocean-deep p-5 text-white shadow-[0_4px_0_rgba(0,0,0,0.25)] transition hover:-translate-y-0.5"
+        >
+          <div className="text-xs font-bold uppercase tracking-wide text-white/70">Saltwater · every table</div>
+          <div className="mt-1 text-2xl font-black">🌊 {OCEAN.name}</div>
+          <p className="mt-1 text-white/85">{OCEAN.blurb} Tarpon, sailfish, and maybe a blue marlin.</p>
+        </Link>
+      ) : (
+        <div className="mt-4 rounded-3xl border-2 border-dashed border-line p-5 opacity-80">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <div className="text-xs font-bold uppercase tracking-wide text-ink-soft">Saltwater</div>
+              <div className="text-lg font-black">{OCEAN.name}</div>
+            </div>
+            <span className="text-2xl" aria-hidden>
+              🔒
+            </span>
+          </div>
+          <p className="mt-1 text-sm text-ink-soft">
+            Beyond the last lake lies the sea. Hook {UNLOCK_THRESHOLD} facts in {lastLake.name} to reach it
+            {lastLake.unlocked ? ` (${lastLake.hooked}/${UNLOCK_THRESHOLD} so far)` : ""}.
+          </p>
+        </div>
+      )}
 
       <Card className="mt-8 flex flex-wrap items-center justify-between gap-3">
         <div>

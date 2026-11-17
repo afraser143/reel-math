@@ -2,9 +2,9 @@ import { and, asc, desc, eq, max, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Db } from "@/db";
 import { catches, factProgress, profiles } from "@/db/schema";
-import { catchFish, getSpecies, LUNKER_OZ } from "@/lib/domain/fish";
+import { catchFish, getSpecies, isTrophy, type Water } from "@/lib/domain/fish";
 import { guideTip } from "@/lib/domain/hints";
-import { isValidFact, lakeStatuses, type LakeStatus } from "@/lib/domain/lakes";
+import { isValidFact, lakeStatuses, oceanUnlocked, type LakeStatus } from "@/lib/domain/lakes";
 import { pickCards, review, type Card, type FactProgress } from "@/lib/domain/srs";
 import { HttpError, notFound } from "./errors";
 
@@ -61,18 +61,25 @@ export async function getLakes(db: Db, profileId: string): Promise<LakeStatus[]>
 export async function startTrip(
   db: Db,
   profileId: string,
-  opts: { focusTable?: number; now?: Date; rng?: () => number } = {},
+  opts: { focusTable?: number; water?: Water; now?: Date; rng?: () => number } = {},
 ): Promise<Card[]> {
   const progress = await loadProgress(db, profileId);
   const lakes = lakeStatuses(progress);
   const unlockedTables = lakes.filter((l) => l.unlocked).map((l) => l.table);
+  const now = opts.now ?? new Date();
+
+  if (opts.water === "salt") {
+    if (!oceanUnlocked(progress)) throw new HttpError(403, "The ocean is still out of reach");
+    // Every table at once, weakest facts first; hardly any brand-new ones out here.
+    return pickCards(progress as FactProgress[], { unlockedTables, now, maxNew: 2, rng: opts.rng });
+  }
   if (opts.focusTable !== undefined && !unlockedTables.includes(opts.focusTable)) {
     throw new HttpError(403, "That lake is still locked");
   }
   return pickCards(progress as FactProgress[], {
     unlockedTables,
     focusTable: opts.focusTable,
-    now: opts.now ?? new Date(),
+    now,
     rng: opts.rng,
   });
 }
@@ -84,6 +91,8 @@ export const AnswerSchema = z.object({
   responseMs: z.number().int().min(0).max(10 * 60_000),
   /** Word problems take reading time, so they're sized by a flat tournament bonus instead of speed. */
   mode: z.enum(["card", "word"]).default("card"),
+  /** Which water he's fishing: the lakes, or the Open Ocean once it's open. */
+  water: z.enum(["fresh", "salt"]).default("fresh"),
 });
 export type AnswerInput = z.input<typeof AnswerSchema>;
 
@@ -98,10 +107,14 @@ export interface AnswerResult {
     speciesId: string;
     speciesName: string;
     weightOz: number;
+    water: Water;
+    tier: "common" | "rare" | "legendary";
     lunker: boolean;
     personalBest: boolean;
   };
   unlockedLake?: { table: number; name: string };
+  /** True on the answer that opens the Open Ocean. */
+  unlockedOcean?: boolean;
 }
 
 /**
@@ -121,9 +134,12 @@ export async function recordAnswer(
   const responseMs = Math.max(input.responseMs, 400);
 
   return db.transaction(async (tx) => {
-    const before = lakeStatuses(await loadProgress(tx, profileId));
+    const progressBefore = await loadProgress(tx, profileId);
+    const before = lakeStatuses(progressBefore);
     const lake = before.find((l) => l.table === table);
     if (!lake?.unlocked) throw new HttpError(403, "That lake is still locked");
+    const oceanWasOpen = oceanUnlocked(progressBefore);
+    if (input.water === "salt" && !oceanWasOpen) throw new HttpError(403, "The ocean is still out of reach");
 
     const [current] = await tx
       .select()
@@ -171,23 +187,29 @@ export async function recordAnswer(
     }
 
     const fishMs = input.mode === "word" ? WORD_PROBLEM_FISH_MS : responseMs;
-    const fish = catchFish(fishMs, current?.box ?? 0, opts.rng);
+    const water = input.water ?? "fresh";
+    const fish = catchFish(fishMs, current?.box ?? 0, opts.rng, water);
     const [{ best }] = await tx
       .select({ best: max(catches.weightOz) })
       .from(catches)
       .where(and(eq(catches.profileId, profileId), eq(catches.speciesId, fish.speciesId)));
     await tx.insert(catches).values({ profileId, ...fish, table, multiplier, responseMs, caughtAt: now });
 
+    const species = getSpecies(fish.speciesId)!;
     result.fish = {
       ...fish,
-      speciesName: getSpecies(fish.speciesId)!.name,
-      lunker: fish.weightOz >= LUNKER_OZ,
+      speciesName: species.name,
+      water: species.water,
+      tier: species.tier,
+      lunker: isTrophy(fish.speciesId, fish.weightOz),
       personalBest: best !== null && fish.weightOz > best,
     };
 
-    const after = lakeStatuses(await loadProgress(tx, profileId));
+    const progressAfter = await loadProgress(tx, profileId);
+    const after = lakeStatuses(progressAfter);
     const opened = after.find((l, i) => l.unlocked && !before[i].unlocked);
     if (opened) result.unlockedLake = { table: opened.table, name: opened.name };
+    if (!oceanWasOpen && oceanUnlocked(progressAfter)) result.unlockedOcean = true;
     return result;
   });
 }

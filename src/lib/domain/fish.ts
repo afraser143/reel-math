@@ -1,31 +1,60 @@
 /**
- * Every correct answer lands a bass. Faster answers land heavier fish, and
- * rare species only bite on quick answers to facts he already knows well.
+ * Every correct answer lands a fish. Faster answers land heavier fish, and the
+ * rarest species only bite on quick answers to facts he already knows well.
+ * Bass live in the lakes; once every lake is open, the Open Ocean adds saltwater fish.
  */
+export type Water = "fresh" | "salt";
+export type Tier = "common" | "rare" | "legendary";
+export type Shape = "bass" | "trout" | "flat" | "slim" | "mahi" | "billfish";
+
 export interface Species {
   id: string;
   name: string;
+  water: Water;
   minLb: number;
   maxLb: number;
-  /** Relative chance of biting. */
+  /** Relative chance of biting, among the species that can bite. */
   weight: number;
-  rare: boolean;
+  tier: Tier;
+  /** At or above this weight, it's a trophy (a "lunker" for bass). Saltwater lines sit near the
+   *  top 15% of the size range, so a trophy stays special even for a fast answerer. */
+  trophyLb: number;
+  shape: Shape;
   color: string;
 }
 
-export const SPECIES: readonly Species[] = [
-  { id: "largemouth", name: "Largemouth Bass", minLb: 1, maxLb: 9, weight: 50, rare: false, color: "#4d7c0f" },
-  { id: "smallmouth", name: "Smallmouth Bass", minLb: 0.75, maxLb: 5.5, weight: 30, rare: false, color: "#a16207" },
-  { id: "spotted", name: "Spotted Bass", minLb: 0.75, maxLb: 4.5, weight: 15, rare: false, color: "#65a30d" },
-  { id: "guadalupe", name: "Guadalupe Bass", minLb: 0.5, maxLb: 3.5, weight: 4, rare: true, color: "#15803d" },
-  { id: "redeye", name: "Redeye Bass", minLb: 0.5, maxLb: 3, weight: 1, rare: true, color: "#b91c1c" },
-] as const;
+const s = (
+  id: string, name: string, water: Water, minLb: number, maxLb: number, weight: number,
+  tier: Tier, trophyLb: number, shape: Shape, color: string,
+): Species => ({ id, name, water, minLb, maxLb, weight, tier, trophyLb, shape, color });
 
-/** A fish at or above this weight is a lunker. */
+export const SPECIES: readonly Species[] = [
+  s("largemouth", "Largemouth Bass", "fresh", 1, 9, 50, "common", 5, "bass", "#4d7c0f"),
+  s("smallmouth", "Smallmouth Bass", "fresh", 0.75, 5.5, 30, "common", 5, "bass", "#a16207"),
+  s("spotted", "Spotted Bass", "fresh", 0.75, 4.5, 15, "common", 5, "bass", "#65a30d"),
+  s("guadalupe", "Guadalupe Bass", "fresh", 0.5, 3.5, 4, "rare", 5, "bass", "#15803d"),
+  s("redeye", "Redeye Bass", "fresh", 0.5, 3, 1, "rare", 5, "bass", "#b91c1c"),
+
+  s("speckled_trout", "Speckled Trout", "salt", 1, 7, 30, "common", 6, "trout", "#7d8ea3"),
+  s("redfish", "Redfish", "salt", 3, 28, 30, "common", 24, "bass", "#c2410c"),
+  s("flounder", "Flounder", "salt", 1, 9, 20, "common", 8, "flat", "#8b7d6b"),
+  s("snook", "Snook", "salt", 3, 25, 15, "common", 22, "slim", "#9aa9b8"),
+  s("mahi", "Mahi-Mahi", "salt", 8, 45, 10, "common", 40, "mahi", "#15a34a"),
+  s("tarpon", "Tarpon", "salt", 40, 180, 4, "rare", 160, "slim", "#b8c4d0"),
+  s("sailfish", "Sailfish", "salt", 30, 110, 3, "rare", 100, "billfish", "#1d4ed8"),
+  s("blue_marlin", "Blue Marlin", "salt", 150, 650, 1, "legendary", 500, "billfish", "#1e3a8a"),
+]; // prettier-ignore
+
+/** Kept for older code paths: the bass "lunker" line. */
 export const LUNKER_OZ = 5 * 16;
 
 export function getSpecies(id: string): Species | undefined {
-  return SPECIES.find((s) => s.id === id);
+  return SPECIES.find((sp) => sp.id === id);
+}
+
+export function isTrophy(speciesId: string, weightOz: number): boolean {
+  const sp = getSpecies(speciesId);
+  return sp !== undefined && weightOz >= sp.trophyLb * 16;
 }
 
 /** 1 for an instant answer, falling to 0 at 10 seconds. */
@@ -38,18 +67,27 @@ export interface Catch {
   weightOz: number;
 }
 
-export function catchFish(responseMs: number, box: number, rng: () => number = Math.random): Catch {
+export function catchFish(
+  responseMs: number,
+  box: number,
+  rng: () => number = Math.random,
+  water: Water = "fresh",
+): Catch {
   const speed = speedScore(responseMs);
-  const rareEligible = speed >= 0.6 && box >= 2;
-  const pool = SPECIES.filter((s) => rareEligible || !s.rare);
-  const total = pool.reduce((sum, s) => sum + s.weight, 0);
+  // Rare fish need a quick answer to a fact he's seen before; a legendary one needs real fluency.
+  const canBite = (sp: Species) =>
+    sp.tier === "common" ||
+    (sp.tier === "rare" && speed >= 0.6 && box >= 2) ||
+    (sp.tier === "legendary" && speed >= 0.9 && box >= 3); // about 2.8 seconds or faster
+  const pool = SPECIES.filter((sp) => sp.water === water && canBite(sp));
+  const total = pool.reduce((sum, sp) => sum + sp.weight, 0);
 
   let roll = rng() * total;
   let species = pool[0];
-  for (const s of pool) {
-    roll -= s.weight;
+  for (const sp of pool) {
+    roll -= sp.weight;
     if (roll < 0) {
-      species = s;
+      species = sp;
       break;
     }
   }

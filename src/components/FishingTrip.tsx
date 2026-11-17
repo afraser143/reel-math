@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { formatWeight, speedScore } from "@/lib/domain/fish";
+import { formatWeight, speedScore, type Water } from "@/lib/domain/fish";
 import type { AnswerResult } from "@/lib/server/fishing";
 import { Bobber, Fish } from "./Fish";
 import { NumberPad } from "./NumberPad";
@@ -22,7 +22,17 @@ type Phase =
   | { kind: "result"; result: AnswerResult }
   | { kind: "done" };
 
-export function FishingTrip({ profileId, mode, lake }: { profileId: string; mode: "card" | "word"; lake?: number }) {
+export function FishingTrip({
+  profileId,
+  mode,
+  lake,
+  water = "fresh",
+}: {
+  profileId: string;
+  mode: "card" | "word";
+  lake?: number;
+  water?: Water;
+}) {
   const [items, setItems] = useState<Item[]>([]);
   const [index, setIndex] = useState(0);
   const [phase, setPhase] = useState<Phase>({ kind: "loading" });
@@ -42,7 +52,7 @@ export function FishingTrip({ profileId, mode, lake }: { profileId: string; mode
       const res = await fetch(url, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(mode === "card" ? { focusTable: lake } : {}),
+        body: JSON.stringify(mode === "card" ? (water === "salt" ? { water } : { focusTable: lake }) : {}),
       });
       const body = await res.json().catch(() => ({}));
       if (cancelled) return;
@@ -57,7 +67,7 @@ export function FishingTrip({ profileId, mode, lake }: { profileId: string; mode
     return () => {
       cancelled = true;
     };
-  }, [profileId, mode, lake, tripKey]);
+  }, [profileId, mode, lake, water, tripKey]);
 
   // Start the clock whenever a new question appears.
   useEffect(() => {
@@ -73,7 +83,14 @@ export function FishingTrip({ profileId, mode, lake }: { profileId: string; mode
     const res = await fetch(`/api/profiles/${profileId}/answers`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ table: item.table, multiplier: item.multiplier, answer: Number(input), responseMs, mode }),
+      body: JSON.stringify({
+        table: item.table,
+        multiplier: item.multiplier,
+        answer: Number(input),
+        responseMs,
+        mode,
+        water,
+      }),
     });
     setSending(false);
     if (!res.ok) {
@@ -84,7 +101,7 @@ export function FishingTrip({ profileId, mode, lake }: { profileId: string; mode
     if (result.fish) setLanded((l) => [...l, result.fish!]);
     if (!result.correct && !item.retry) setItems((list) => [...list, { ...item, retry: true }]);
     setPhase({ kind: "result", result });
-  }, [item, input, sending, profileId, mode]);
+  }, [item, input, sending, profileId, mode, water]);
 
   const next = useCallback(() => {
     setInput("");
@@ -111,7 +128,11 @@ export function FishingTrip({ profileId, mode, lake }: { profileId: string; mode
       <div className="py-16 text-center">
         <Bobber className="animate-bob mx-auto h-20 w-14 text-ink" />
         <p className="mt-4 text-lg font-bold text-ink-soft">
-          {mode === "word" ? "The tournament director is writing your challenges…" : "Baiting the hook…"}
+          {mode === "word"
+            ? "The tournament director is writing your challenges…"
+            : water === "salt"
+              ? "Heading out past the breakers…"
+              : "Baiting the hook…"}
         </p>
       </div>
     );
@@ -204,11 +225,12 @@ function ResultCard({ result, item, onNext, last }: { result: AnswerResult; item
             {formatWeight(fish.weightOz)} {fish.speciesName}
           </p>
           <div className="mt-2 flex flex-wrap justify-center gap-2">
-            {fish.lunker && <Badge className="bg-gold-soft text-gold">🏆 Lunker!</Badge>}
-            {fish.personalBest && <Badge className="bg-reed-soft text-reed">⭐ Biggest {fish.speciesName} yet!</Badge>}
-            {(fish.speciesId === "guadalupe" || fish.speciesId === "redeye") && (
-              <Badge className="bg-bobber-soft text-bobber">✨ Rare catch!</Badge>
+            {fish.lunker && (
+              <Badge className="bg-gold-soft text-gold">{fish.water === "salt" ? "🏆 Trophy fish!" : "🏆 Lunker!"}</Badge>
             )}
+            {fish.personalBest && <Badge className="bg-reed-soft text-reed">⭐ Biggest {fish.speciesName} yet!</Badge>}
+            {fish.tier === "rare" && <Badge className="bg-bobber-soft text-bobber">✨ Rare catch!</Badge>}
+            {fish.tier === "legendary" && <Badge className="bg-gold-soft text-gold">🌟 Legendary catch!</Badge>}
           </div>
           <p className="mt-3 text-lg font-bold text-ink-soft">
             {item.table} × {item.multiplier} = {result.correctAnswer}
@@ -237,6 +259,11 @@ function ResultCard({ result, item, onNext, last }: { result: AnswerResult; item
           🗺️ New lake unlocked: {result.unlockedLake.name}!
         </p>
       )}
+      {result.unlockedOcean && (
+        <p className="mt-4 rounded-2xl bg-ocean px-4 py-3 font-black text-white">
+          🌊 You reached the Open Ocean! Saltwater fish are biting.
+        </p>
+      )}
       <Button onClick={onNext} className="mt-5 w-full max-w-xs" autoFocus>
         {last ? "Head to the dock" : "Next cast"}
       </Button>
@@ -255,7 +282,7 @@ function TripSummary({ landed, onAgain, lakeMap }: { landed: NonNullable<AnswerR
     <Card className="animate-splash text-center">
       <p className="text-sm font-black uppercase tracking-widest text-water">Back at the dock</p>
       <h2 className="mt-1 text-3xl font-black">
-        {landed.length} {landed.length === 1 ? "bass" : "bass"} landed
+        {landed.length} {landed.some((f) => f.water === "salt") ? "fish" : "bass"} landed
       </h2>
       {biggest ? (
         <>

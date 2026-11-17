@@ -4,6 +4,8 @@
   --sky: #dff1f7;
   --water: #1c6e8c;
   --water-deep: #0b3d5c;
+  --ocean: #0e7490;
+  --ocean-deep: #082f49;
   --shore: #f6efdc;
   --card: #fffdf7;
   --ink: #1d2a33;
@@ -60,6 +62,8 @@
   --color-sky: var(--sky);
   --color-water: var(--water);
   --color-water-deep: var(--water-deep);
+  --color-ocean: var(--ocean);
+  --color-ocean-deep: var(--ocean-deep);
   --color-shore: var(--shore);
   --color-card: var(--card);
   --color-ink: var(--ink);

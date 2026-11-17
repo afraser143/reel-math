@@ -194,3 +194,44 @@ describe("withVerifiedSsl", () => {
     expect(withVerifiedSsl("postgres://u@localhost:5432/db")).toBe("postgres://u@localhost:5432/db");
   });
 });
+
+describe("the Open Ocean", () => {
+  async function hookEveryLake(profileId: string, upTo = LAKES.length) {
+    let t = Date.now();
+    let opened = false;
+    for (const lake of LAKES.slice(0, upTo)) {
+      for (const m of MULTIPLIERS.slice(0, UNLOCK_THRESHOLD)) {
+        for (let i = 0; i < 2; i++) {
+          const r = await recordAnswer(
+            db,
+            profileId,
+            { table: lake.table, multiplier: m, answer: lake.table * m, responseMs: 1500 },
+            { now: new Date((t += 60_000)) },
+          );
+          opened ||= Boolean(r.unlockedOcean);
+        }
+      }
+    }
+    return opened;
+  }
+
+  it("is closed until the last lake is hooked, then lands saltwater fish from every table", async () => {
+    const { profile } = await setup();
+    await expect(startTrip(db, profile.id, { water: "salt" })).rejects.toMatchObject({ status: 403 });
+    await expect(
+      recordAnswer(db, profile.id, { table: 2, multiplier: 3, answer: 6, responseMs: 1000, water: "salt" }),
+    ).rejects.toMatchObject({ status: 403 });
+
+    expect(await hookEveryLake(profile.id, LAKES.length - 1)).toBe(false);
+    expect(await hookEveryLake(profile.id)).toBe(true); // the answer that hooks the 12s opens the ocean
+
+    const cards = await startTrip(db, profile.id, { water: "salt", now: new Date(Date.now() + 30 * 86_400_000) });
+    expect(cards).toHaveLength(10);
+    expect(new Set(cards.map((c) => c.table)).size).toBeGreaterThan(1); // mixed tables
+
+    const r = await recordAnswer(db, profile.id, { table: 7, multiplier: 8, answer: 56, responseMs: 1200, water: "salt" });
+    expect(r.fish?.water).toBe("salt");
+    const fresh = await recordAnswer(db, profile.id, { table: 7, multiplier: 9, answer: 63, responseMs: 1200 });
+    expect(fresh.fish?.water).toBe("fresh");
+  });
+});
